@@ -434,7 +434,7 @@ export default function Profile() {
                   <div style={{ fontSize: 32, fontWeight: 600, color: '#00C9A7' }}>{'< 10'}</div>
                   <div style={{ fontSize: 13, color: '#5a7a96', lineHeight: 1.5 }}>
                     Daily average net insulin score. Achievable with whole foods,
-                    adequate fiber, and minimizing refined carbs - consistent with established metabolic research.
+                    adequate fiber, and minimizing refined carbs which is consistent with established metabolic research.
                   </div>
                 </div>
               </div>
