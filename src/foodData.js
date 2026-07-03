@@ -341,9 +341,21 @@ export const FOOD_DB = [
 
 
 //Supplements
-{ id: 301, name: "Spirulina (tablets)", category: "Supplements", gi: 0, carbP100: 24.0, fiberP100: 3.6, proteinP100: 57.0, fatP100: 8.0, portions: [{ label: "1 tbsp powder (3g)", g: 3 }, { label: "6 tablets", g: 3 }] },
+{ id: 301, name: "Spirulina tablets (Sunlit Best Organics)", 
+  category: "Supplements", gi: 0, 
+  carbP100: 10.0, fiberP100: 10.0, proteinP100: 66.7, fatP100: 0.0, 
+  portions: [
+    { label: "12 tablets (3g)", g: 3 }, 
+    { label: "24 tablets (6g)", g: 6 }
+  ] },
 
-{ id: 302, name: "Chlorella (tablets)", category: "Supplements", gi: 0, carbP100: 18.0, fiberP100: 0.0, proteinP100: 55.0, fatP100: 9.0, portions: [{ label: "6 tablets", g: 3 }, { label: "10 tablets", g: 5 }] },
+{ id: 302, name: "Chlorella tablets (Sunlit Best Organics)", 
+  category: "Supplements", gi: 0, 
+  carbP100: 10.0, fiberP100: 10.0, proteinP100: 66.7, fatP100: 0.0, 
+  portions: [
+    { label: "12 tablets (3g)", g: 3 }, 
+    { label: "24 tablets (6g)", g: 6 }
+  ] },
 
 { id: 303, name: "Premier Protein shake (estimated GI)", 
   category: "Supplements", gi: 25, 
