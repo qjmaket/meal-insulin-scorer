@@ -345,7 +345,7 @@ export default function Profile() {
               );
             })}
             <p style={{ fontSize: 11, color: '#3a5a76', marginTop: 10, lineHeight: 1.5 }}>
-              These are suggestions based on Fung's framework — deeper fasting on rest days,
+              These are suggestions based on insulin-focused nutrition principles - deeper fasting on rest days,
               earlier break-fast on game and training days. All times are editable when logging meals.
             </p>
           </div>
@@ -434,7 +434,7 @@ export default function Profile() {
                   <div style={{ fontSize: 32, fontWeight: 600, color: '#00C9A7' }}>{'< 10'}</div>
                   <div style={{ fontSize: 13, color: '#5a7a96', lineHeight: 1.5 }}>
                     Daily average net insulin score. Achievable with whole foods,
-                    adequate fiber, and minimizing refined carbs per Fung's framework.
+                    adequate fiber, and minimizing refined carbs - consistent with established metabolic research.
                   </div>
                 </div>
               </div>
