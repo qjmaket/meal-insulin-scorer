@@ -1,15 +1,18 @@
-import { useState, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import FastingTracker from './FastingTracker';
 import HydrationCounter from './HydrationCounter';
 import QuickLog from './QuickLog';
-import FoodSearch from './FoodSearch';
 import {
-  getLog, getDailyTotals, deleteLogEntry, updateLogEntry,
-  getFlagByValue, logMeal, MEAL_FLAGS,
-} from '../utils/dailyLog';
-import { saveFavorite } from '../utils/dailyLog';
-import { storageGet, todayKey, formatTime } from '../utils/storage';
-import { getMealScore, calcGL, calcFiber, calcCarbs, calcProtein, calcFat } from '../foodData';
+  getMealLogs, deleteMealLog, updateMealLog,
+  insertMealLog, insertSavedMeal, calcDailyTotals,
+  getHydration, upsertHydration,
+  getFastingWindow, upsertFastingWindow,
+  getSavedMeals, deleteSavedMeal,
+  getRecentMealLogs,
+} from '../lib/db';
+import { MEAL_FLAGS, getFlagByValue } from '../utils/dailyLog';
+import { todayKey, formatTime } from '../utils/storage';
+import { getMealScore } from '../foodData';
 
 // ── Shared sub-components ────────────────────────────────
 
@@ -21,9 +24,7 @@ function MacroBar({ label, value, target, color }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
         <span style={{ fontSize: 12, color: '#5a7a96' }}>{label}</span>
         <span style={{ fontSize: 12 }}>
-          <span style={{ color: over ? '#E84545' : '#F0EDE6', fontWeight: 500 }}>
-            {Math.round(value)}
-          </span>
+          <span style={{ color: over ? '#E84545' : '#F0EDE6', fontWeight: 500 }}>{Math.round(value)}</span>
           <span style={{ color: '#3a5a76' }}> / {target}g</span>
         </span>
       </div>
@@ -54,197 +55,11 @@ function CalorieBar({ value, target }) {
   );
 }
 
-// ── Meal edit modal ──────────────────────────────────────
-
-function EditMealModal({ entry, onSave, onClose }) {
-  const [items, setItems] = useState(() =>
-    entry.items.map(i => ({
-      food: {
-        id: i.foodId,
-        name: i.foodName,
-        gi: i.gi,
-        carbP100: i.carbP100,
-        fiberP100: i.fiberP100,
-        proteinP100: i.proteinP100,
-        fatP100: i.fatP100,
-        portions: [{ label: 'Logged portion', g: i.grams }],
-      },
-      grams: i.grams,
-      portionIdx: 0,
-      quantity: 1,
-    }))
-  );
-  const [mealName, setMealName] = useState(entry.name);
-  const [flag, setFlag] = useState(entry.flag || null);
-
-  const removeItem = (idx) => setItems(prev => prev.filter((_, i) => i !== idx));
-
-  const addItem = (item) => setItems(prev => [...prev, item]);
-
-  const score = getMealScore(items);
-
-  const handleSave = () => {
-    const updated = {
-      name: mealName,
-      flag,
-      items: items.map(i => ({
-        foodId: i.food.id,
-        foodName: i.food.name,
-        grams: i.grams,
-        portionIdx: i.portionIdx,
-        gi: i.food.gi,
-        carbP100: i.food.carbP100,
-        fiberP100: i.food.fiberP100,
-        proteinP100: i.food.proteinP100,
-        fatP100: i.food.fatP100,
-      })),
-      score: score ? {
-        netScore: score.netScore,
-        totalGL: score.totalGL,
-        totalFiber: score.totalFiber,
-        totalCarbs: score.totalCarbs,
-        totalProtein: score.totalProtein,
-        totalFat: score.totalFat,
-        avgGI: score.avgGI,
-        fiberOffset: score.fiberOffset,
-        rating: score.rating,
-      } : entry.score,
-    };
-    onSave(updated);
-  };
-
-  return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 300,
-      background: 'rgba(0,0,0,0.7)',
-      display: 'flex', alignItems: 'flex-end',
-      justifyContent: 'center',
-    }}
-      onClick={e => e.target === e.currentTarget && onClose()}
-    >
-      <div style={{
-        background: '#0F1923',
-        border: '1px solid #1e2d3d',
-        borderRadius: '12px 12px 0 0',
-        width: '100%',
-        maxWidth: 720,
-        maxHeight: '85vh',
-        overflowY: 'auto',
-        padding: '20px 16px 32px',
-      }}>
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <div>
-            <div className="label-sm" style={{ color: '#00C9A7', marginBottom: 4 }}>EDIT MEAL</div>
-            <input
-              value={mealName}
-              onChange={e => setMealName(e.target.value)}
-              style={{
-                background: 'none', border: 'none',
-                borderBottom: '1px solid #1e3a52',
-                color: '#F0EDE6', fontSize: 16, fontWeight: 500,
-                fontFamily: 'inherit', outline: 'none', padding: '2px 0',
-                width: 200,
-              }}
-            />
-          </div>
-          <button onClick={onClose} style={{
-            background: 'none', border: 'none', color: '#5a7a96',
-            fontSize: 24, cursor: 'pointer', lineHeight: 1,
-          }}>×</button>
-        </div>
-
-        {/* Search to add foods */}
-        <FoodSearch onAdd={addItem} />
-
-        {/* Current items */}
-        {items.map((item, idx) => {
-          const gl = item.food.gi !== null ? calcGL(item.food, item.grams) : null;
-          const carbs = calcCarbs(item.food, item.grams);
-          const fiber = calcFiber(item.food, item.grams);
-          return (
-            <div key={idx} className="card" style={{ marginBottom: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: '#F0EDE6' }}>{item.food.name}</div>
-                  <div style={{ fontSize: 11, color: '#5a7a96', marginTop: 2 }}>
-                    {item.grams}g · C {carbs.toFixed(1)}g · F {fiber.toFixed(1)}g
-                    {gl !== null && ` · GL ${gl.toFixed(1)}`}
-                  </div>
-                </div>
-                <button onClick={() => removeItem(idx)} style={{
-                  background: 'none', border: 'none', color: '#5a7a96',
-                  fontSize: 18, cursor: 'pointer',
-                }}>×</button>
-              </div>
-            </div>
-          );
-        })}
-
-        {/* Flag selector */}
-        <div style={{ marginTop: 14, marginBottom: 14 }}>
-          <div className="label-sm" style={{ marginBottom: 8 }}>Meal context</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            <button
-              onClick={() => setFlag(null)}
-              style={{
-                padding: '4px 12px', borderRadius: 4, fontSize: 11,
-                border: `1px solid ${!flag ? '#00C9A7' : '#1e3a52'}`,
-                background: !flag ? '#0a2a25' : 'none',
-                color: !flag ? '#00C9A7' : '#5a7a96',
-                cursor: 'pointer', fontFamily: 'inherit',
-              }}
-            >None</button>
-            {MEAL_FLAGS.map(f => (
-              <button key={f.value} onClick={() => setFlag(flag === f.value ? null : f.value)}
-                style={{
-                  padding: '4px 12px', borderRadius: 4, fontSize: 11,
-                  border: `1px solid ${flag === f.value ? f.color : '#1e3a52'}`,
-                  background: flag === f.value ? `${f.color}20` : 'none',
-                  color: flag === f.value ? f.color : '#5a7a96',
-                  cursor: 'pointer', fontFamily: 'inherit',
-                }}
-              >{f.icon} {f.label}</button>
-            ))}
-          </div>
-        </div>
-
-        {/* Live score preview */}
-        {score && (
-          <div style={{
-            padding: '10px 12px', background: '#0d1b27',
-            borderRadius: 6, marginBottom: 14,
-            display: 'flex', gap: 16, flexWrap: 'wrap',
-          }}>
-            <span style={{ fontSize: 12, color: '#5a7a96' }}>
-              Net score: <strong style={{ color: score.netScore < 10 ? '#00C9A7' : score.netScore <= 20 ? '#F5A623' : '#E84545' }}>
-                {score.netScore.toFixed(1)}
-              </strong>
-            </span>
-            <span style={{ fontSize: 12, color: '#5a7a96' }}>P {score.totalProtein.toFixed(0)}g</span>
-            <span style={{ fontSize: 12, color: '#5a7a96' }}>C {score.totalCarbs.toFixed(0)}g</span>
-            <span style={{ fontSize: 12, color: '#5a7a96' }}>F {score.totalFat.toFixed(0)}g</span>
-          </div>
-        )}
-
-        <button onClick={handleSave} style={{
-          width: '100%', background: '#00C9A7', border: 'none',
-          borderRadius: 6, color: '#0F1923', padding: '12px',
-          fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-        }}>
-          Save changes
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ── Logged meal card ─────────────────────────────────────
-
-function LoggedMealCard({ entry, onDelete, onUpdateTimestamp, onEdit, onFavorite }) {
+function LoggedMealCard({ entry, onDelete, onUpdateTimestamp, onFavorite }) {
   const [editingTime, setEditingTime] = useState(false);
-  const [timeVal, setTimeVal] = useState('');
-  const [favSaved, setFavSaved] = useState(false);
+  const [timeVal, setTimeVal]         = useState('');
+  const [favSaved, setFavSaved]       = useState(false);
+  const [deleting, setDeleting]       = useState(false);
   const flag = entry.flag ? getFlagByValue(entry.flag) : null;
 
   const startEditTime = () => {
@@ -270,13 +85,11 @@ function LoggedMealCard({ entry, onDelete, onUpdateTimestamp, onEdit, onFavorite
 
   const ratingColor = !entry.score ? '#5a7a96'
     : entry.score.rating === 'Low' ? '#00C9A7'
-    : entry.score.rating === 'Moderate' ? '#F5A623'
-    : '#E84545';
+    : entry.score.rating === 'Moderate' ? '#F5A623' : '#E84545';
 
   const ratingBg = !entry.score ? '#1a2d3d'
     : entry.score.rating === 'Low' ? '#0a2a25'
-    : entry.score.rating === 'Moderate' ? '#2a2010'
-    : '#2a1010';
+    : entry.score.rating === 'Moderate' ? '#2a2010' : '#2a1010';
 
   return (
     <div className="card" style={{ marginBottom: 8 }}>
@@ -285,18 +98,12 @@ function LoggedMealCard({ entry, onDelete, onUpdateTimestamp, onEdit, onFavorite
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
             <span style={{ fontSize: 14, fontWeight: 500, color: '#F0EDE6' }}>{entry.name}</span>
             {entry.score && (
-              <span style={{
-                fontSize: 11, padding: '2px 8px', borderRadius: 4,
-                background: ratingBg, color: ratingColor, fontWeight: 600,
-              }}>
+              <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: ratingBg, color: ratingColor, fontWeight: 600 }}>
                 {entry.score.netScore.toFixed(1)}
               </span>
             )}
             {flag && (
-              <span style={{
-                fontSize: 10, padding: '2px 8px', borderRadius: 4,
-                background: `${flag.color}20`, color: flag.color, fontWeight: 600,
-              }}>
+              <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: `${flag.color}20`, color: flag.color, fontWeight: 600 }}>
                 {flag.icon} {flag.label}
               </span>
             )}
@@ -311,11 +118,9 @@ function LoggedMealCard({ entry, onDelete, onUpdateTimestamp, onEdit, onFavorite
             </div>
           )}
 
-          {/* Timestamp editor */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             {editingTime ? (
-              <input
-                type="time" value={timeVal}
+              <input type="time" value={timeVal}
                 onChange={e => setTimeVal(e.target.value)}
                 onBlur={commitTime}
                 onKeyDown={e => e.key === 'Enter' && commitTime()}
@@ -331,133 +136,289 @@ function LoggedMealCard({ entry, onDelete, onUpdateTimestamp, onEdit, onFavorite
                 background: 'none', border: 'none', color: '#5a7a96',
                 fontSize: 11, cursor: 'pointer', fontFamily: 'inherit',
                 textDecoration: 'underline dotted', padding: 0,
-              }}>
-                {formatTime(entry.timestamp)}
-              </button>
+              }}>{formatTime(entry.timestamp)}</button>
             )}
             <span style={{ fontSize: 10, color: '#3a5a76' }}>tap to edit time</span>
           </div>
         </div>
 
-        {/* Action buttons */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
-          {/* Favorite */}
-          <button
-            onClick={handleFavorite}
-            title="Save as favorite"
-            style={{
-              background: favSaved ? '#0a2a25' : 'none',
-              border: `1px solid ${favSaved ? '#00C9A7' : '#1e3a52'}`,
-              borderRadius: 4, color: favSaved ? '#00C9A7' : '#5a7a96',
-              fontSize: 14, cursor: 'pointer', padding: '3px 8px',
-              transition: 'all 0.2s',
-            }}
-          >
-            {favSaved ? '✓' : '⭐'}
-          </button>
-          {/* Edit */}
-          <button
-            onClick={() => onEdit(entry)}
-            title="Edit meal"
-            style={{
-              background: 'none', border: '1px solid #1e3a52',
-              borderRadius: 4, color: '#5a7a96',
-              fontSize: 12, cursor: 'pointer', padding: '3px 8px',
-            }}
-          >
-            ✎
-          </button>
-          {/* Delete */}
-          <button
-            onClick={() => onDelete(entry.id)}
-            title="Delete meal"
-            style={{
-              background: 'none', border: 'none', color: '#5a7a96',
-              fontSize: 18, cursor: 'pointer', lineHeight: 1, padding: '0 4px',
-            }}
-          >×</button>
+          <button onClick={handleFavorite} title="Save as favorite" style={{
+            background: favSaved ? '#0a2a25' : 'none',
+            border: `1px solid ${favSaved ? '#00C9A7' : '#1e3a52'}`,
+            borderRadius: 4, color: favSaved ? '#00C9A7' : '#5a7a96',
+            fontSize: 14, cursor: 'pointer', padding: '3px 8px', transition: 'all 0.2s',
+          }}>{favSaved ? '✓' : '⭐'}</button>
+          <button onClick={() => onDelete(entry.id)} title="Delete meal" style={{
+            background: 'none', border: 'none', color: '#5a7a96',
+            fontSize: 18, cursor: 'pointer', lineHeight: 1, padding: '0 4px',
+          }}>×</button>
         </div>
       </div>
     </div>
   );
 }
 
+// ── Supabase-backed QuickLog ──────────────────────────────
+
+function SupabaseQuickLog({ userId, onLogMeal }) {
+  const [tab, setTab]           = useState('favorites');
+  const [favorites, setFavorites] = useState([]);
+  const [templates, setTemplates] = useState([]);
+  const [recent, setRecent]     = useState([]);
+  const [loading, setLoading]   = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const [favRes, tmplRes, recentRes] = await Promise.all([
+      getSavedMeals(userId, 'favorite'),
+      getSavedMeals(userId, 'template'),
+      getRecentMealLogs(userId, 7),
+    ]);
+    setFavorites(favRes.data || []);
+    setTemplates(tmplRes.data || []);
+    setRecent(recentRes.data || []);
+    setLoading(false);
+  }, [userId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleDelete = async (id, type) => {
+    await deleteSavedMeal(userId, id);
+    load();
+  };
+
+  const handleLog = (meal) => {
+    onLogMeal({
+      name: meal.name,
+      items: (meal.items || []).map(i => ({
+        food: i.food || { id: i.foodId, name: i.foodName, gi: 0, carbP100: 0, fiberP100: 0, proteinP100: 0, fatP100: 0, portions: [{ label: 'serving', g: i.grams }] },
+        grams: i.grams,
+        portionIdx: i.portionIdx || 0,
+      })),
+    });
+  };
+
+  const scoreColor = (score) => {
+    if (!score) return '#5a7a96';
+    return score.rating === 'Low' ? '#00C9A7' : score.rating === 'Moderate' ? '#F5A623' : '#E84545';
+  };
+
+  const scoreBg = (score) => {
+    if (!score) return '#1a2d3d';
+    return score.rating === 'Low' ? '#0a2a25' : score.rating === 'Moderate' ? '#2a2010' : '#2a1010';
+  };
+
+  const MealRow = ({ meal, onLog, onDelete }) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid #1e2d3d' }}>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 13, fontWeight: 500, color: '#F0EDE6', marginBottom: 2 }}>{meal.name}</div>
+        {meal.score && (
+          <div style={{ fontSize: 11, color: '#5a7a96', display: 'flex', gap: 8 }}>
+            <span>P {meal.score.totalProtein?.toFixed(0)}g</span>
+            <span>C {meal.score.totalCarbs?.toFixed(0)}g</span>
+          </div>
+        )}
+      </div>
+      {meal.score && (
+        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: scoreBg(meal.score), color: scoreColor(meal.score), fontWeight: 600 }}>
+          {meal.score.netScore?.toFixed(1)}
+        </span>
+      )}
+      <button onClick={() => onLog(meal)} style={{
+        background: '#00C9A7', border: 'none', borderRadius: 4,
+        color: '#0F1923', fontSize: 11, fontWeight: 600,
+        padding: '5px 10px', cursor: 'pointer', fontFamily: 'inherit',
+      }}>Log</button>
+      {onDelete && (
+        <button onClick={() => onDelete(meal.id)} style={{
+          background: 'none', border: 'none', color: '#3a5a76',
+          fontSize: 16, cursor: 'pointer',
+        }}>×</button>
+      )}
+    </div>
+  );
+
+  const tabs = [
+    { id: 'favorites', label: `⭐ Favorites (${favorites.length})` },
+    { id: 'templates', label: `📋 Templates (${templates.length})` },
+    { id: 'recent',    label: '🕐 Recent' },
+  ];
+
+  return (
+    <div className="card">
+      <div className="label-sm" style={{ marginBottom: 12 }}>Quick log</div>
+      <div style={{ display: 'flex', borderBottom: '1px solid #1e2d3d', marginBottom: 12 }}>
+        {tabs.map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)} style={{
+            flex: 1, background: 'none', border: 'none',
+            borderBottom: tab === t.id ? '2px solid #00C9A7' : '2px solid transparent',
+            color: tab === t.id ? '#F0EDE6' : '#5a7a96',
+            padding: '6px 4px', fontSize: 11, cursor: 'pointer',
+            fontFamily: 'inherit', fontWeight: tab === t.id ? 600 : 400,
+          }}>{t.label}</button>
+        ))}
+      </div>
+      <div style={{ maxHeight: 280, overflowY: 'auto' }}>
+        {loading && <div style={{ fontSize: 12, color: '#5a7a96', padding: '12px 0', textAlign: 'center' }}>Loading…</div>}
+        {!loading && tab === 'favorites' && (
+          favorites.length === 0
+            ? <div style={{ fontSize: 12, color: '#5a7a96', padding: '12px 0', textAlign: 'center', lineHeight: 1.6 }}>No favorites yet.<br />Score a meal and tap ⭐ Save as favorite.</div>
+            : favorites.map(m => <MealRow key={m.id} meal={m} onLog={handleLog} onDelete={(id) => handleDelete(id, 'favorite')} />)
+        )}
+        {!loading && tab === 'templates' && (
+          templates.length === 0
+            ? <div style={{ fontSize: 12, color: '#5a7a96', padding: '12px 0', textAlign: 'center', lineHeight: 1.6 }}>No templates yet.<br />Score a meal and tap 📋 Save as template.</div>
+            : templates.map(m => <MealRow key={m.id} meal={m} onLog={handleLog} onDelete={(id) => handleDelete(id, 'template')} />)
+        )}
+        {!loading && tab === 'recent' && (
+          recent.length === 0
+            ? <div style={{ fontSize: 12, color: '#5a7a96', padding: '12px 0', textAlign: 'center' }}>No meals logged in the last 7 days.</div>
+            : recent.map(m => <MealRow key={m.id} meal={m} onLog={handleLog} />)
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Supabase-backed HydrationCounter ─────────────────────
+
+function SupabaseHydrationCounter({ userId }) {
+  const [oz, setOz]           = useState(0);
+  const [loading, setLoading] = useState(true);
+  const GOAL = 64;
+
+  useEffect(() => {
+    getHydration(userId, todayKey()).then(({ data }) => {
+      setOz(data || 0);
+      setLoading(false);
+    });
+  }, [userId]);
+
+  const add = async (amount) => {
+    const updated = oz + amount;
+    setOz(updated);
+    await upsertHydration(userId, todayKey(), updated);
+  };
+
+  const reset = async () => {
+    setOz(0);
+    await upsertHydration(userId, todayKey(), 0);
+  };
+
+  const pct = Math.min((oz / GOAL) * 100, 100);
+  const color = pct >= 100 ? '#00C9A7' : pct >= 50 ? '#F5A623' : '#5a7a96';
+
+  return (
+    <div className="card">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+        <div>
+          <div className="label-sm" style={{ marginBottom: 4 }}>Hydration</div>
+          <div style={{ fontSize: 11, color: '#5a7a96' }}>Daily goal: {GOAL} oz / {GOAL / 8} cups</div>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: 24, fontWeight: 600, color, lineHeight: 1 }}>{loading ? '…' : oz} oz</div>
+          <div style={{ fontSize: 11, color: '#5a7a96' }}>{Math.round(oz / 8 * 10) / 10} cups</div>
+        </div>
+      </div>
+      <div className="progress-track" style={{ marginBottom: 14 }}>
+        <div className="progress-fill" style={{ width: `${pct}%`, background: color }} />
+      </div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {[8, 12, 16, 20].map(amt => (
+          <button key={amt} onClick={() => add(amt)} style={{
+            flex: 1, background: '#1a2d3d', border: '1px solid #1e3a52',
+            borderRadius: 6, color: '#F0EDE6', padding: '8px 4px',
+            fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
+          }}>+{amt} oz</button>
+        ))}
+        <button onClick={reset} style={{
+          background: 'none', border: '1px solid #1e3a52', borderRadius: 6,
+          color: '#5a7a96', padding: '8px 12px', fontSize: 12,
+          cursor: 'pointer', fontFamily: 'inherit',
+        }}>Reset</button>
+      </div>
+      {pct >= 100 && (
+        <div style={{ marginTop: 10, padding: '6px 10px', background: '#0a2a25', borderRadius: 6, fontSize: 11, color: '#00C9A7' }}>
+          ✓ Daily hydration goal reached
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main DailyLog screen ─────────────────────────────────
 
-export default function DailyLog({ profile, onNavigate }) {
-  const [log, setLog]           = useState(() => getLog(todayKey()));
+export default function DailyLog({ profile, user, onNavigate }) {
+  const [log, setLog]             = useState([]);
+  const [loading, setLoading]     = useState(true);
   const [activeTab, setActiveTab] = useState('log');
-  const [editingEntry, setEditingEntry] = useState(null);
-  const [refreshKey, setRefreshKey]     = useState(0);
-  const [toast, setToast]               = useState(null);
+  const [toast, setToast]         = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  const savedProfile = profile || (() => {
-    try {
-      const p = localStorage.getItem('mis_profile');
-      return p ? JSON.parse(p) : null;
-    } catch { return null; }
-  })();
+  const today = todayKey();
+  const userId = user?.id;
 
-  const targets = { calories: 2447, protein: 175, carbs: 196, fat: 107 };
+  const targets = {
+    calories: profile ? Math.round((profile.calorieTarget || 2447)) : 2447,
+    protein:  profile?.macros?.protein || 175,
+    carbs:    profile?.macros?.carbs   || 196,
+    fat:      profile?.macros?.fat     || 107,
+  };
 
   const showToast = (msg, color = '#00C9A7') => {
     setToast({ msg, color });
     setTimeout(() => setToast(null), 2500);
   };
 
-  const refresh = useCallback(() => {
-    setLog(getLog(todayKey()));
-    setRefreshKey(k => k + 1);
-  }, []);
+  const loadLog = useCallback(async () => {
+    if (!userId) return;
+    setLoading(true);
+    const { data } = await getMealLogs(userId, today);
+    setLog(data || []);
+    setLoading(false);
+  }, [userId, today]);
 
-  const handleDelete = (entryId) => {
-    deleteLogEntry(todayKey(), entryId);
-    refresh();
+  useEffect(() => { loadLog(); }, [loadLog, refreshKey]);
+
+  const refresh = () => setRefreshKey(k => k + 1);
+
+  const handleDelete = async (entryId) => {
+    const { error } = await deleteMealLog(userId, entryId);
+    if (error) { showToast('Failed to delete meal.', '#E84545'); return; }
+    setLog(prev => prev.filter(e => e.id !== entryId));
   };
 
-  const handleUpdateTimestamp = (entryId, newTs) => {
-    updateLogEntry(todayKey(), entryId, { timestamp: newTs });
-    refresh();
+  const handleUpdateTimestamp = async (entryId, newTs) => {
+    const { error } = await updateMealLog(userId, entryId, { timestamp: newTs });
+    if (error) { showToast('Failed to update time.', '#E84545'); return; }
+    setLog(prev => prev.map(e => e.id === entryId ? { ...e, timestamp: newTs } : e));
   };
 
-  const handleEdit = (entry) => {
-    setEditingEntry(entry);
-  };
-
-  const handleSaveEdit = (updates) => {
-    updateLogEntry(todayKey(), editingEntry.id, updates);
-    setEditingEntry(null);
-    refresh();
-    showToast('✓ Meal updated');
-  };
-
-  const handleFavorite = (entry) => {
-    saveFavorite({
+  const handleFavorite = async (entry) => {
+    const { error } = await insertSavedMeal(userId, {
       name: entry.name,
-      items: entry.items.map(i => ({
-        food: {
-          id: i.foodId,
-          name: i.foodName,
-          gi: i.gi,
-          carbP100: i.carbP100,
-          fiberP100: i.fiberP100,
-          proteinP100: i.proteinP100,
-          fatP100: i.fatP100,
-          portions: [{ label: 'Logged portion', g: i.grams }],
-        },
+      items: (entry.items || []).map(i => ({
+        food: { id: i.foodId, name: i.foodName, gi: i.gi, carbP100: i.carbP100, fiberP100: i.fiberP100, proteinP100: i.proteinP100, fatP100: i.fatP100, portions: [{ label: 'serving', g: i.grams }] },
         grams: i.grams,
         portionIdx: 0,
       })),
-    });
+    }, 'favorite');
+    if (error) { showToast('Failed to save favorite.', '#E84545'); return; }
     showToast('⭐ Saved as favorite');
   };
 
-  const handleQuickLog = (meal) => {
-    logMeal(meal);
+  const handleQuickLog = async (meal) => {
+    const { error } = await insertMealLog(userId, {
+      ...meal,
+      timestamp: new Date().toISOString(),
+    });
+    if (error) { showToast('Failed to log meal.', '#E84545'); return; }
     refresh();
+    showToast('✓ Meal logged');
   };
 
-  const totals = getDailyTotals(todayKey());
+  const totals = calcDailyTotals(log);
   const totalCals = Math.round((totals.protein * 4) + (totals.carbs * 4) + (totals.fat * 9));
   const avgScore  = totals.mealCount > 0 ? totals.netScore / totals.mealCount : null;
   const scoreColor = avgScore === null ? '#5a7a96'
@@ -476,7 +437,6 @@ export default function DailyLog({ profile, onNavigate }) {
 
   return (
     <div className="screen">
-      {/* Toast */}
       {toast && (
         <div style={{
           position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)',
@@ -487,16 +447,6 @@ export default function DailyLog({ profile, onNavigate }) {
         }}>{toast.msg}</div>
       )}
 
-      {/* Edit modal */}
-      {editingEntry && (
-        <EditMealModal
-          entry={editingEntry}
-          onSave={handleSaveEdit}
-          onClose={() => setEditingEntry(null)}
-        />
-      )}
-
-      {/* Header */}
       <div style={{ padding: '28px 0 16px', borderBottom: '1px solid #1e2d3d', marginBottom: 16 }}>
         <div className="label-sm" style={{ marginBottom: 6, color: '#00C9A7' }}>
           {new Date().toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })}
@@ -504,7 +454,6 @@ export default function DailyLog({ profile, onNavigate }) {
         <h1 style={{ fontSize: 22, fontWeight: 500, margin: 0 }}>Daily Log</h1>
       </div>
 
-      {/* Summary cards */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
         <div className="card" style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 11, color: '#5a7a96', marginBottom: 4 }}>Meals logged</div>
@@ -518,7 +467,6 @@ export default function DailyLog({ profile, onNavigate }) {
         </div>
       </div>
 
-      {/* Macro progress */}
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="label-sm" style={{ marginBottom: 12 }}>Today's progress</div>
         <CalorieBar value={totalCals} target={targets.calories} />
@@ -527,17 +475,17 @@ export default function DailyLog({ profile, onNavigate }) {
         <MacroBar label="Fat"     value={totals.fat}     target={targets.fat}     color="#5a7a96" />
       </div>
 
-      {/* Tab nav */}
       <div style={{ display: 'flex', borderBottom: '1px solid #1e2d3d', marginBottom: 16 }}>
         {tabBtn('log',     `Meals (${log.length})`)}
         {tabBtn('fasting', 'Fasting')}
         {tabBtn('quick',   'Quick log')}
       </div>
 
-      {/* Tab content */}
       {activeTab === 'log' && (
         <div>
-          {log.length === 0 ? (
+          {loading ? (
+            <div style={{ fontSize: 13, color: '#5a7a96', textAlign: 'center', padding: '24px 0' }}>Loading meals…</div>
+          ) : log.length === 0 ? (
             <div className="empty-state">
               No meals logged today.<br />
               Score a meal in the Meal Scorer, then tap <strong>Log This Meal</strong>.
@@ -551,7 +499,6 @@ export default function DailyLog({ profile, onNavigate }) {
                   entry={entry}
                   onDelete={handleDelete}
                   onUpdateTimestamp={handleUpdateTimestamp}
-                  onEdit={handleEdit}
                   onFavorite={handleFavorite}
                 />
               ))
@@ -561,13 +508,18 @@ export default function DailyLog({ profile, onNavigate }) {
 
       {activeTab === 'fasting' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <FastingTracker key={refreshKey} profile={savedProfile} onRefresh={refresh} />
-          <HydrationCounter onUpdate={refresh} />
+          <FastingTracker
+            key={refreshKey}
+            profile={profile}
+            userId={userId}
+            onRefresh={refresh}
+          />
+          <SupabaseHydrationCounter userId={userId} />
         </div>
       )}
 
-      {activeTab === 'quick' && (
-        <QuickLog onLogMeal={handleQuickLog} onRefresh={refresh} />
+      {activeTab === 'quick' && userId && (
+        <SupabaseQuickLog userId={userId} onLogMeal={handleQuickLog} />
       )}
     </div>
   );

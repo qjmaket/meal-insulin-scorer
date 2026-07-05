@@ -3,8 +3,8 @@ import FoodSearch from './FoodSearch';
 import MealItem from './MealItem';
 import ScorePanel from './ScorePanel';
 import MealFlag from './MealFlag';
-import { getMealScore, calcGL, FOOD_DB } from '../foodData';
-import { logMeal, saveFavorite, saveTemplate } from '../utils/dailyLog';
+import { getMealScore, FOOD_DB } from '../foodData';
+import { insertMealLog, insertSavedMeal } from '../lib/db';
 
 const PRESET_MEALS = [
   {
@@ -49,10 +49,6 @@ function buildItems(preset) {
     }));
 }
 
-/**
- * Build items array for scoring/logging
- * effectiveGrams = grams × quantity
- */
 function getEffectiveItems(items) {
   return items.map(i => ({
     ...i,
@@ -60,7 +56,7 @@ function getEffectiveItems(items) {
   }));
 }
 
-export default function MealScorer({ profile, onNavigate }) {
+export default function MealScorer({ profile, user, onNavigate }) {
   const [items, setItems]               = useState([]);
   const [mealName, setMealName]         = useState('My Meal');
   const [editingName, setEditingName]   = useState(false);
@@ -68,8 +64,8 @@ export default function MealScorer({ profile, onNavigate }) {
   const [showLogPanel, setShowLogPanel] = useState(false);
   const [logTimestamp, setLogTimestamp] = useState('');
   const [toast, setToast]               = useState(null);
+  const [logging, setLogging]           = useState(false);
 
-  // Score uses effective grams (grams × quantity)
   const score = getMealScore(getEffectiveItems(items));
 
   const showToast = (msg, color = '#00C9A7') => {
@@ -88,11 +84,7 @@ export default function MealScorer({ profile, onNavigate }) {
   const changePortion = useCallback((idx, portionIdx) => {
     setItems(prev => prev.map((item, i) => {
       if (i !== idx) return item;
-      return {
-        ...item,
-        portionIdx,
-        grams: item.food.portions[portionIdx]?.g ?? item.grams,
-      };
+      return { ...item, portionIdx, grams: item.food.portions[portionIdx]?.g ?? item.grams };
     }));
   }, []);
 
@@ -106,12 +98,7 @@ export default function MealScorer({ profile, onNavigate }) {
   const swapIngredient = useCallback((idx, newFood) => {
     setItems(prev => prev.map((item, i) => {
       if (i !== idx) return item;
-      return {
-        food: newFood,
-        portionIdx: 0,
-        grams: newFood.portions[0].g,
-        quantity: item.quantity ?? 1,
-      };
+      return { food: newFood, portionIdx: 0, grams: newFood.portions[0].g, quantity: item.quantity ?? 1 };
     }));
   }, []);
 
@@ -129,43 +116,63 @@ export default function MealScorer({ profile, onNavigate }) {
     setShowLogPanel(false);
   };
 
-  const handleLogMeal = () => {
-    if (!items.length) return;
+  const handleLogMeal = async () => {
+    if (!items.length || !user?.id) return;
+    setLogging(true);
+
     const ts = logTimestamp
       ? (() => {
           const [h, m] = logTimestamp.split(':').map(Number);
-          const d = new Date();
-          d.setHours(h, m, 0, 0);
+          const d = new Date(); d.setHours(h, m, 0, 0);
           return d.toISOString();
         })()
       : new Date().toISOString();
 
-    logMeal({
+    const { error } = await insertMealLog(user.id, {
       name: mealName,
       items: getEffectiveItems(items),
       flag,
       timestamp: ts,
     });
-    showToast('✓ Meal logged to Daily Log');
-    setShowLogPanel(false);
-    setLogTimestamp('');
+
+    setLogging(false);
+    if (error) {
+      showToast('Failed to log meal. Try again.', '#E84545');
+    } else {
+      showToast('✓ Meal logged to Daily Log');
+      setShowLogPanel(false);
+      setLogTimestamp('');
+    }
   };
 
-  const handleSaveFavorite = () => {
-    if (!items.length) return;
-    saveFavorite({ name: mealName, items: getEffectiveItems(items) });
-    showToast('⭐ Saved as favorite');
+  const handleSaveFavorite = async () => {
+    if (!items.length || !user?.id) return;
+    const { error } = await insertSavedMeal(user.id, {
+      name: mealName,
+      items: getEffectiveItems(items),
+    }, 'favorite');
+    if (error) {
+      showToast('Failed to save favorite.', '#E84545');
+    } else {
+      showToast('⭐ Saved as favorite');
+    }
   };
 
-  const handleSaveTemplate = () => {
-    if (!items.length) return;
-    saveTemplate({ name: mealName, items: getEffectiveItems(items) });
-    showToast('📋 Saved as template');
+  const handleSaveTemplate = async () => {
+    if (!items.length || !user?.id) return;
+    const { error } = await insertSavedMeal(user.id, {
+      name: mealName,
+      items: getEffectiveItems(items),
+    }, 'template');
+    if (error) {
+      showToast('Failed to save template.', '#E84545');
+    } else {
+      showToast('📋 Saved as template');
+    }
   };
 
   return (
     <div className="screen">
-      {/* Toast */}
       {toast && (
         <div style={{
           position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)',
@@ -173,12 +180,9 @@ export default function MealScorer({ profile, onNavigate }) {
           borderRadius: 8, padding: '10px 20px', fontSize: 13,
           color: toast.color, fontWeight: 600, zIndex: 500,
           boxShadow: '0 4px 20px rgba(0,0,0,0.4)', whiteSpace: 'nowrap',
-        }}>
-          {toast.msg}
-        </div>
+        }}>{toast.msg}</div>
       )}
 
-      {/* Header */}
       <div style={{ padding: '28px 0 20px', borderBottom: '1px solid #1e2d3d', marginBottom: 20 }}>
         <div className="label-sm" style={{ marginBottom: 6, color: '#00C9A7' }}>
           INSULIN IMPACT · MEAL ANALYZER
@@ -189,19 +193,11 @@ export default function MealScorer({ profile, onNavigate }) {
         </p>
       </div>
 
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'minmax(0,1fr) 220px',
-        gap: 24,
-        alignItems: 'start',
-      }}>
-        {/* Left: meal builder */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 220px', gap: 24, alignItems: 'start' }}>
         <div>
-          {/* Meal name */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
             {editingName ? (
-              <input
-                autoFocus value={mealName}
+              <input autoFocus value={mealName}
                 onChange={e => setMealName(e.target.value)}
                 onBlur={() => setEditingName(false)}
                 onKeyDown={e => e.key === 'Enter' && setEditingName(false)}
@@ -213,11 +209,8 @@ export default function MealScorer({ profile, onNavigate }) {
                 }}
               />
             ) : (
-              <span
-                onClick={() => setEditingName(true)}
-                title="Click to rename"
-                style={{ fontSize: 16, fontWeight: 500, cursor: 'pointer', color: '#F0EDE6' }}
-              >
+              <span onClick={() => setEditingName(true)} title="Click to rename"
+                style={{ fontSize: 16, fontWeight: 500, cursor: 'pointer', color: '#F0EDE6' }}>
                 {mealName}
               </span>
             )}
@@ -237,37 +230,21 @@ export default function MealScorer({ profile, onNavigate }) {
             </div>
           ) : (
             items.map((item, idx) => (
-              <MealItem
-                key={idx}
-                item={item}
-                idx={idx}
-                onRemove={removeItem}
-                onChangePortion={changePortion}
-                onChangeQuantity={changeQuantity}
-                onSwap={swapIngredient}
-              />
+              <MealItem key={idx} item={item} idx={idx}
+                onRemove={removeItem} onChangePortion={changePortion}
+                onChangeQuantity={changeQuantity} onSwap={swapIngredient} />
             ))
           )}
 
-          {/* Action buttons */}
           {items.length > 0 && score && (
             <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {/* Log this meal */}
-              <div style={{
-                background: '#0d1b27', border: '1px solid #1e2d3d',
-                borderRadius: 8, overflow: 'hidden',
-              }}>
-                <button
-                  onClick={() => setShowLogPanel(!showLogPanel)}
-                  style={{
-                    width: '100%', background: '#00C9A7', border: 'none',
-                    color: '#0F1923', padding: '12px 16px', fontSize: 14,
-                    fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  }}
-                >
-                  ▶ Log This Meal
-                </button>
+              <div style={{ background: '#0d1b27', border: '1px solid #1e2d3d', borderRadius: 8, overflow: 'hidden' }}>
+                <button onClick={() => setShowLogPanel(!showLogPanel)} style={{
+                  width: '100%', background: '#00C9A7', border: 'none',
+                  color: '#0F1923', padding: '12px 16px', fontSize: 14,
+                  fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                }}>▶ Log This Meal</button>
 
                 {showLogPanel && (
                   <div style={{ padding: '14px 16px' }}>
@@ -275,9 +252,7 @@ export default function MealScorer({ profile, onNavigate }) {
                     <div style={{ marginTop: 14 }}>
                       <div className="label-sm" style={{ marginBottom: 6 }}>Time</div>
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <input
-                          type="time"
-                          value={logTimestamp}
+                        <input type="time" value={logTimestamp}
                           onChange={e => setLogTimestamp(e.target.value)}
                           style={{
                             background: '#1a2d3d', border: '1px solid #1e3a52',
@@ -288,22 +263,21 @@ export default function MealScorer({ profile, onNavigate }) {
                         <span style={{ fontSize: 11, color: '#5a7a96' }}>leave blank for now</span>
                       </div>
                     </div>
-                    <button
-                      onClick={handleLogMeal}
-                      style={{
-                        marginTop: 14, width: '100%',
-                        background: '#00C9A7', border: 'none', borderRadius: 6,
-                        color: '#0F1923', padding: '10px', fontSize: 13,
-                        fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-                      }}
-                    >
-                      Confirm log
+                    <button onClick={handleLogMeal} disabled={logging} style={{
+                      marginTop: 14, width: '100%',
+                      background: logging ? '#1a2d3d' : '#00C9A7',
+                      border: 'none', borderRadius: 6,
+                      color: logging ? '#5a7a96' : '#0F1923',
+                      padding: '10px', fontSize: 13,
+                      fontWeight: 600, cursor: logging ? 'default' : 'pointer',
+                      fontFamily: 'inherit',
+                    }}>
+                      {logging ? 'Logging…' : 'Confirm log'}
                     </button>
                   </div>
                 )}
               </div>
 
-              {/* Save actions */}
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn-ghost" onClick={handleSaveFavorite} style={{ flex: 1, fontSize: 12 }}>
                   ⭐ Save as favorite
@@ -315,17 +289,12 @@ export default function MealScorer({ profile, onNavigate }) {
             </div>
           )}
 
-          {/* Presets */}
           <div style={{ marginTop: 24 }}>
             <div className="label-sm" style={{ marginBottom: 10 }}>Load a preset meal</div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {PRESET_MEALS.map(p => (
-                <button
-                  key={p.name}
-                  className="btn-ghost"
-                  onClick={() => loadPreset(p)}
-                  style={{ fontSize: 12, borderColor: `${p.color}40`, color: p.color }}
-                >
+                <button key={p.name} className="btn-ghost" onClick={() => loadPreset(p)}
+                  style={{ fontSize: 12, borderColor: `${p.color}40`, color: p.color }}>
                   {p.name}
                 </button>
               ))}
@@ -333,7 +302,6 @@ export default function MealScorer({ profile, onNavigate }) {
           </div>
         </div>
 
-        {/* Right: score panel */}
         <div style={{ position: 'sticky', top: 16 }}>
           <ScorePanel score={score} />
         </div>

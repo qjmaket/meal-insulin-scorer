@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
-import {
-  getFastingWindow, getSuggestedTimes, getTodayDayType,
-  setFastBreak, setWindowClose,
-} from '../utils/dailyLog';
-import { formatTime, formatDuration, minutesSince, minutesBetween, todayKey } from '../utils/storage';
+import { getFastingWindow, upsertFastingWindow } from '../lib/db';
+import { getSuggestedTimes, getTodayDayType } from '../utils/dailyLog';
+import { todayKey, formatTime, formatDuration } from '../utils/storage';
 
 function TimeDisplay({ label, time, onEdit }) {
   const [editing, setEditing] = useState(false);
@@ -28,32 +26,24 @@ function TimeDisplay({ label, time, onEdit }) {
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #1e2d3d' }}>
       <span style={{ fontSize: 12, color: '#5a7a96' }}>{label}</span>
       {editing ? (
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <input
-            type="time"
-            value={val}
-            onChange={e => setVal(e.target.value)}
-            onBlur={commit}
-            onKeyDown={e => e.key === 'Enter' && commit()}
-            autoFocus
-            style={{
-              background: '#1a2d3d', border: '1px solid #00C9A7',
-              borderRadius: 4, color: '#F0EDE6', padding: '3px 8px',
-              fontSize: 13, fontFamily: 'inherit',
-            }}
-          />
-        </div>
-      ) : (
-        <button
-          onClick={startEdit}
+        <input type="time" value={val}
+          onChange={e => setVal(e.target.value)}
+          onBlur={commit}
+          onKeyDown={e => e.key === 'Enter' && commit()}
+          autoFocus
           style={{
-            background: 'none', border: 'none',
-            color: time ? '#F0EDE6' : '#5a7a96',
-            fontSize: 13, fontWeight: 500, cursor: 'pointer',
-            fontFamily: 'inherit',
-            textDecoration: 'underline dotted',
+            background: '#1a2d3d', border: '1px solid #00C9A7',
+            borderRadius: 4, color: '#F0EDE6', padding: '3px 8px',
+            fontSize: 13, fontFamily: 'inherit',
           }}
-        >
+        />
+      ) : (
+        <button onClick={startEdit} style={{
+          background: 'none', border: 'none',
+          color: time ? '#F0EDE6' : '#5a7a96',
+          fontSize: 13, fontWeight: 500, cursor: 'pointer',
+          fontFamily: 'inherit', textDecoration: 'underline dotted',
+        }}>
           {time ? formatTime(time) : 'tap to set'}
         </button>
       )}
@@ -61,50 +51,62 @@ function TimeDisplay({ label, time, onEdit }) {
   );
 }
 
-export default function FastingTracker({ profile, onRefresh }) {
-  const [window, setWindow] = useState(getFastingWindow(todayKey()));
-  const [now, setNow] = useState(Date.now());
+export default function FastingTracker({ profile, userId, onRefresh }) {
+  const [window, setWindow]   = useState(null);
+  const [now, setNow]         = useState(Date.now());
+  const [loading, setLoading] = useState(true);
 
-  // Update live clock every minute
+  const today = todayKey();
+
+  useEffect(() => {
+    if (!userId) return;
+    getFastingWindow(userId, today).then(({ data }) => {
+      setWindow(data);
+      setLoading(false);
+    });
+  }, [userId, today]);
+
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 60000);
     return () => clearInterval(timer);
   }, []);
 
-  const refresh = () => {
-    setWindow(getFastingWindow(todayKey()));
+  const saveWindow = async (updates) => {
+    if (!userId) return;
+    const updated = { ...(window || {}), ...updates };
+    setWindow(updated);
+    await upsertFastingWindow(userId, today, updated);
     onRefresh?.();
   };
+
+  const handleSetFastBreak = (ts) => saveWindow({ first_meal: ts, manual_fast_break: true });
+  const handleSetWindowClose = (ts) => saveWindow({ window_close: ts, manual_window_close: true });
 
   const dayType = getTodayDayType(profile);
   const suggested = getSuggestedTimes(dayType);
   const dayTypeLabel = dayType.charAt(0).toUpperCase() + dayType.slice(1).replace('_', ' ');
 
-  // Live fasting/window status
-  const { firstMeal, lastMeal, windowClose } = window;
+  const firstMeal = window?.first_meal;
+  const lastMeal = window?.last_meal;
+  const windowClose = window?.window_close;
+
   const inEatingWindow = firstMeal && !windowClose;
   const windowOpen = firstMeal
-    ? Math.round((now - new Date(firstMeal)) / 60000)
-    : null;
-  const fastingSince = lastMeal || windowClose;
+    ? Math.round((now - new Date(firstMeal)) / 60000) : null;
+  const fastingSince = windowClose || lastMeal;
   const currentFast = fastingSince
-    ? Math.round((now - new Date(fastingSince)) / 60000)
-    : null;
+    ? Math.round((now - new Date(fastingSince)) / 60000) : null;
 
-  const handleSetFastBreak = (ts) => {
-    setFastBreak(todayKey(), ts);
-    refresh();
-  };
-
-  const handleSetWindowClose = (ts) => {
-    setWindowClose(todayKey(), ts);
-    refresh();
-  };
+  if (loading) {
+    return (
+      <div className="card" style={{ textAlign: 'center', padding: '24px', color: '#5a7a96', fontSize: 13 }}>
+        Loading fasting data…
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-
-      {/* Live status */}
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
           <div>
@@ -147,45 +149,28 @@ export default function FastingTracker({ profile, onRefresh }) {
           </div>
         )}
 
-        <TimeDisplay
-          label="Fast broken"
-          time={firstMeal}
-          onEdit={handleSetFastBreak}
-        />
-        <TimeDisplay
-          label="Window closed"
-          time={windowClose || lastMeal}
-          onEdit={handleSetWindowClose}
-        />
-        {window.fastingMinutes && (
+        <TimeDisplay label="Fast broken"    time={firstMeal}   onEdit={handleSetFastBreak} />
+        <TimeDisplay label="Window closed"  time={windowClose || lastMeal} onEdit={handleSetWindowClose} />
+
+        {window?.fasting_minutes && (
           <div style={{ padding: '8px 0', fontSize: 12, color: '#5a7a96' }}>
-            Fast before this window: <span style={{ color: '#00C9A7' }}>{formatDuration(window.fastingMinutes)}</span>
+            Fast before this window: <span style={{ color: '#00C9A7' }}>{formatDuration(window.fasting_minutes)}</span>
           </div>
         )}
       </div>
 
-      {/* Suggested meal times */}
       <div className="card">
-        <div className="label-sm" style={{ marginBottom: 10 }}>
-          Suggested times · {dayTypeLabel}
-        </div>
+        <div className="label-sm" style={{ marginBottom: 10 }}>Suggested times · {dayTypeLabel}</div>
         {suggested.meals.map((time, i) => {
           const labels = ['Meal 1 (break fast)', 'Meal 2', 'Meal 3', 'Meal 4'];
           return (
-            <div key={i} style={{
-              display: 'flex', justifyContent: 'space-between',
-              padding: '7px 0', borderBottom: '1px solid #1e2d3d',
-              fontSize: 13,
-            }}>
+            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #1e2d3d', fontSize: 13 }}>
               <span style={{ color: '#5a7a96' }}>{labels[i] || `Meal ${i + 1}`}</span>
               <span style={{ color: '#F0EDE6', fontWeight: 500 }}>{time}</span>
             </div>
           );
         })}
-        <div style={{
-          display: 'flex', justifyContent: 'space-between',
-          padding: '7px 0', fontSize: 13,
-        }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', fontSize: 13 }}>
           <span style={{ color: '#5a7a96' }}>Close window</span>
           <span style={{ color: '#F0EDE6', fontWeight: 500 }}>{suggested.closeWindow}</span>
         </div>

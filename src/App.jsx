@@ -4,40 +4,97 @@ import Dashboard from './components/Dashboard';
 import MealScorer from './components/MealScorer';
 import DailyLog from './components/DailyLog';
 import Profile from './components/Profile';
-
-function loadProfile() {
-  try {
-    const saved = localStorage.getItem('mis_profile');
-    return saved ? JSON.parse(saved) : null;
-  } catch {
-    return null;
-  }
-}
+import AuthScreen from './components/AuthScreen';
+import { onAuthStateChange, getSession } from './lib/auth';
+import { loadProfile, saveProfile } from './lib/db';
 
 export default function App() {
-  const [screen, setScreen]   = useState('scorer');
-  const [profile, setProfile] = useState(loadProfile);
+  const [screen, setScreen]     = useState('scorer');
+  const [session, setSession]   = useState(null);
+  const [profile, setProfile]   = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
-  // Reload profile whenever user navigates to a screen
-  // (in case they saved updated stats in Profile tab)
+  // ── Auth state management ──────────────────────────────
   useEffect(() => {
-    setProfile(loadProfile());
+    // Check for existing session on mount
+    getSession().then(({ session }) => {
+      setSession(session);
+      if (session) {
+        fetchProfile(session.user.id);
+      }
+      setAuthLoading(false);
+    });
+
+    // Subscribe to auth changes (login, logout, token refresh)
+    const unsubscribe = onAuthStateChange(async (event, session) => {
+      setSession(session);
+      if (session) {
+        await fetchProfile(session.user.id);
+      } else {
+        setProfile(null);
+      }
+    });
+
+    return unsubscribe;
+  }, []);
+
+  // Reload profile when user navigates to different screens
+  // in case they updated stats in Profile tab
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetchProfile(session.user.id);
+    }
   }, [screen]);
 
-  const handleNav = (id) => {
-    setScreen(id);
+  const fetchProfile = async (userId) => {
+    const { data } = await loadProfile(userId);
+    if (data) setProfile(data);
   };
 
+  const handleProfileSave = async (profileData) => {
+    if (!session?.user?.id) return;
+    await saveProfile(session.user.id, profileData);
+    setProfile(profileData);
+  };
+
+  const handleNav = (id) => setScreen(id);
+
+  // ── Loading state ──────────────────────────────────────
+  if (authLoading) {
+    return (
+      <div style={{
+        minHeight: '100vh', background: '#0F1923',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontFamily: "'Space Grotesk', sans-serif",
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 11, letterSpacing: '0.12em', color: '#00C9A7', fontWeight: 600, marginBottom: 12 }}>
+            MEAL INSULIN SCORER
+          </div>
+          <div style={{ fontSize: 13, color: '#5a7a96' }}>Loading…</div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Not authenticated ──────────────────────────────────
+  if (!session) {
+    return <AuthScreen />;
+  }
+
+  // ── Authenticated ──────────────────────────────────────
+  const user = session.user;
+
   const screens = {
-    dashboard: <Dashboard profile={profile} onNavigate={handleNav} />,
-    scorer:    <MealScorer profile={profile} onNavigate={handleNav} />,
-    log:       <DailyLog profile={profile} onNavigate={handleNav} />,
-    profile:   <Profile onSave={() => setProfile(loadProfile())} />,
+    dashboard: <Dashboard profile={profile} user={user} onNavigate={handleNav} />,
+    scorer:    <MealScorer profile={profile} user={user} onNavigate={handleNav} />,
+    log:       <DailyLog profile={profile} user={user} onNavigate={handleNav} />,
+    profile:   <Profile profile={profile} user={user} onSave={handleProfileSave} />,
   };
 
   return (
     <div style={{ minHeight: '100vh', background: '#0F1923', paddingBottom: 64 }}>
-      {screens[screen] ?? <MealScorer />}
+      {screens[screen] ?? <MealScorer profile={profile} user={user} />}
       <NavBar active={screen} onNav={handleNav} />
     </div>
   );
