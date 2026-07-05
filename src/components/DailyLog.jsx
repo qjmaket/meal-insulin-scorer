@@ -349,7 +349,7 @@ function SupabaseHydrationCounter({ userId }) {
 
 // ── Main DailyLog screen ─────────────────────────────────
 
-export default function DailyLog({ profile, user, onNavigate }) {
+export default function DailyLog({ profile, targets: propTargets, user, onNavigate }) {
   const [log, setLog]             = useState([]);
   const [loading, setLoading]     = useState(true);
   const [activeTab, setActiveTab] = useState('log');
@@ -359,11 +359,12 @@ export default function DailyLog({ profile, user, onNavigate }) {
   const today = todayKey();
   const userId = user?.id;
 
-  const targets = {
-    calories: profile ? Math.round((profile.calorieTarget || 2447)) : 2447,
-    protein:  profile?.macros?.protein || 175,
-    carbs:    profile?.macros?.carbs   || 196,
-    fat:      profile?.macros?.fat     || 107,
+  // Use calculated targets from App.jsx, fall back to hardcoded defaults
+  const targets = propTargets || {
+    calories: 2447,
+    protein: 175,
+    carbs: 196,
+    fat: 107,
   };
 
   const showToast = (msg, color = '#00C9A7') => {
