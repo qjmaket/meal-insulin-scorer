@@ -9,7 +9,7 @@ function glBadgeClass(gl) {
   return 'gl-high';
 }
 
-export default function MealItem({ item, idx, onRemove, onChangePortion, onSwap }) {
+export default function MealItem({ item, idx, onRemove, onChangePortion, onChangeQuantity, onSwap }) {
   const [swapping, setSwapping]       = useState(false);
   const [swapQuery, setSwapQuery]     = useState('');
   const [swapLocal, setSwapLocal]     = useState([]);
@@ -17,11 +17,15 @@ export default function MealItem({ item, idx, onRemove, onChangePortion, onSwap 
   const [swapLoading, setSwapLoading] = useState(false);
   const swapTimer = useRef(null);
 
+  // quantity defaults to 1 if not set
+  const quantity = item.quantity ?? 1;
+  const effectiveGrams = item.grams * quantity;
+
   const gl      = item.food.gi !== null && item.food.gi !== undefined
-    ? calcGL(item.food, item.grams) : null;
-  const fiber   = calcFiber(item.food, item.grams);
-  const carbs   = calcCarbs(item.food, item.grams);
-  const protein = calcProtein(item.food, item.grams);
+    ? calcGL(item.food, effectiveGrams) : null;
+  const fiber   = calcFiber(item.food, effectiveGrams);
+  const carbs   = calcCarbs(item.food, effectiveGrams);
+  const protein = calcProtein(item.food, effectiveGrams);
   const glClass = glBadgeClass(gl);
 
   const handleSwapSearch = async (q) => {
@@ -55,10 +59,20 @@ export default function MealItem({ item, idx, onRemove, onChangePortion, onSwap 
     )).slice(0, 3),
   ];
 
+  const handleQuantityChange = (val) => {
+    const num = parseFloat(val);
+    if (!isNaN(num) && num > 0) {
+      onChangeQuantity(idx, num);
+    } else if (val === '' || val === '0') {
+      onChangeQuantity(idx, 1);
+    }
+  };
+
   return (
     <div className="card" style={{ marginBottom: 8 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
+          {/* Name and GL badge */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 14, fontWeight: 500, color: '#F0EDE6' }}>
               {item.food.name}
@@ -72,23 +86,60 @@ export default function MealItem({ item, idx, onRemove, onChangePortion, onSwap 
               }}>GI unknown</span>
             )}
           </div>
+
+          {/* Macro line */}
           <div style={{ fontSize: 12, color: '#5a7a96', marginTop: 3, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             {item.food.gi !== null && item.food.gi !== undefined && <span>GI {item.food.gi}</span>}
             <span>C {carbs.toFixed(1)}g</span>
             <span>F {fiber.toFixed(1)}g</span>
             <span>P {protein.toFixed(1)}g</span>
+            {quantity !== 1 && (
+              <span style={{ color: '#00C9A7' }}>× {quantity} = {effectiveGrams.toFixed(0)}g total</span>
+            )}
           </div>
-          <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+
+          {/* Portion controls */}
+          <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            {/* Portion dropdown */}
             <select
               className="select"
               value={item.portionIdx}
-              onChange={e => onChangePortion(idx, parseInt(e.target.value))}
+              onChange={e => {
+                onChangePortion(idx, parseInt(e.target.value));
+              }}
               style={{ fontSize: 12, padding: '3px 8px' }}
             >
               {item.food.portions.map((p, i) => (
                 <option key={i} value={i}>{p.label}</option>
               ))}
             </select>
+
+            {/* Quantity multiplier */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ fontSize: 11, color: '#5a7a96' }}>×</span>
+              <input
+                type="number"
+                min="0.25"
+                step="0.25"
+                value={quantity}
+                onChange={e => handleQuantityChange(e.target.value)}
+                style={{
+                  background: '#1a2d3d',
+                  border: '1px solid #1e3a52',
+                  borderRadius: 4,
+                  color: '#F0EDE6',
+                  padding: '3px 6px',
+                  fontSize: 12,
+                  width: 56,
+                  fontFamily: 'inherit',
+                  textAlign: 'center',
+                }}
+                title="Quantity multiplier — e.g. enter 4 for 4 eggs"
+              />
+              <span style={{ fontSize: 10, color: '#3a5a76' }}>qty</span>
+            </div>
+
+            {/* Swap button */}
             <button
               className="btn-ghost"
               onClick={() => setSwapping(!swapping)}
@@ -102,16 +153,20 @@ export default function MealItem({ item, idx, onRemove, onChangePortion, onSwap 
             </button>
           </div>
         </div>
+
+        {/* Remove button */}
         <button
           onClick={() => onRemove(idx)}
           style={{
             background: 'none', border: 'none', color: '#5a7a96',
-            fontSize: 20, lineHeight: 1, padding: '0 4px', cursor: 'pointer', flexShrink: 0,
+            fontSize: 20, lineHeight: 1, padding: '0 4px',
+            cursor: 'pointer', flexShrink: 0,
           }}
           aria-label={`Remove ${item.food.name}`}
         >×</button>
       </div>
 
+      {/* Swap panel */}
       {swapping && (
         <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #1a2d3d' }}>
           <div style={{ fontSize: 12, color: '#5a7a96', marginBottom: 6 }}>Swap with:</div>

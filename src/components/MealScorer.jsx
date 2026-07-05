@@ -3,7 +3,7 @@ import FoodSearch from './FoodSearch';
 import MealItem from './MealItem';
 import ScorePanel from './ScorePanel';
 import MealFlag from './MealFlag';
-import { getMealScore, calcGL, calcFiber, calcCarbs, FOOD_DB } from '../foodData';
+import { getMealScore, calcGL, FOOD_DB } from '../foodData';
 import { logMeal, saveFavorite, saveTemplate } from '../utils/dailyLog';
 
 const PRESET_MEALS = [
@@ -11,9 +11,9 @@ const PRESET_MEALS = [
     name: 'High-Insulin Breakfast',
     color: '#E84545',
     items: [
-      { food: FOOD_DB.find(f => f.id === 8),  portionIdx: 1 },
-      { food: FOOD_DB.find(f => f.id === 202), portionIdx: 1 },
-      { food: FOOD_DB.find(f => f.id === 3),  portionIdx: 1 },
+      { food: FOOD_DB.find(f => f.id === 8),   portionIdx: 1 },
+      { food: FOOD_DB.find(f => f.id === 202),  portionIdx: 1 },
+      { food: FOOD_DB.find(f => f.id === 3),   portionIdx: 1 },
     ],
   },
   {
@@ -30,10 +30,10 @@ const PRESET_MEALS = [
     name: "Athlete's Dinner",
     color: '#F5A623',
     items: [
-      { food: FOOD_DB.find(f => f.id === 31), portionIdx: 2 },
-      { food: FOOD_DB.find(f => f.id === 2),  portionIdx: 1 },
-      { food: FOOD_DB.find(f => f.id === 61), portionIdx: 1 },
-      { food: FOOD_DB.find(f => f.id === 186),portionIdx: 1 },
+      { food: FOOD_DB.find(f => f.id === 31),  portionIdx: 2 },
+      { food: FOOD_DB.find(f => f.id === 2),   portionIdx: 1 },
+      { food: FOOD_DB.find(f => f.id === 61),  portionIdx: 1 },
+      { food: FOOD_DB.find(f => f.id === 186), portionIdx: 1 },
     ],
   },
 ];
@@ -45,10 +45,22 @@ function buildItems(preset) {
       food: i.food,
       portionIdx: i.portionIdx,
       grams: i.food.portions[i.portionIdx]?.g ?? i.food.portions[0].g,
+      quantity: 1,
     }));
 }
 
-export default function MealScorer({ onNavigate }) {
+/**
+ * Build items array for scoring/logging
+ * effectiveGrams = grams × quantity
+ */
+function getEffectiveItems(items) {
+  return items.map(i => ({
+    ...i,
+    grams: i.grams * (i.quantity ?? 1),
+  }));
+}
+
+export default function MealScorer({ profile, onNavigate }) {
   const [items, setItems]               = useState([]);
   const [mealName, setMealName]         = useState('My Meal');
   const [editingName, setEditingName]   = useState(false);
@@ -57,7 +69,8 @@ export default function MealScorer({ onNavigate }) {
   const [logTimestamp, setLogTimestamp] = useState('');
   const [toast, setToast]               = useState(null);
 
-  const score = getMealScore(items);
+  // Score uses effective grams (grams × quantity)
+  const score = getMealScore(getEffectiveItems(items));
 
   const showToast = (msg, color = '#00C9A7') => {
     setToast({ msg, color });
@@ -65,7 +78,7 @@ export default function MealScorer({ onNavigate }) {
   };
 
   const addItem = useCallback((item) => {
-    setItems(prev => [...prev, item]);
+    setItems(prev => [...prev, { ...item, quantity: 1 }]);
   }, []);
 
   const removeItem = useCallback((idx) => {
@@ -75,14 +88,30 @@ export default function MealScorer({ onNavigate }) {
   const changePortion = useCallback((idx, portionIdx) => {
     setItems(prev => prev.map((item, i) => {
       if (i !== idx) return item;
-      return { ...item, portionIdx, grams: item.food.portions[portionIdx]?.g ?? item.grams };
+      return {
+        ...item,
+        portionIdx,
+        grams: item.food.portions[portionIdx]?.g ?? item.grams,
+      };
+    }));
+  }, []);
+
+  const changeQuantity = useCallback((idx, quantity) => {
+    setItems(prev => prev.map((item, i) => {
+      if (i !== idx) return item;
+      return { ...item, quantity };
     }));
   }, []);
 
   const swapIngredient = useCallback((idx, newFood) => {
     setItems(prev => prev.map((item, i) => {
       if (i !== idx) return item;
-      return { food: newFood, portionIdx: 0, grams: newFood.portions[0].g };
+      return {
+        food: newFood,
+        portionIdx: 0,
+        grams: newFood.portions[0].g,
+        quantity: item.quantity ?? 1,
+      };
     }));
   }, []);
 
@@ -105,12 +134,18 @@ export default function MealScorer({ onNavigate }) {
     const ts = logTimestamp
       ? (() => {
           const [h, m] = logTimestamp.split(':').map(Number);
-          const d = new Date(); d.setHours(h, m, 0, 0);
+          const d = new Date();
+          d.setHours(h, m, 0, 0);
           return d.toISOString();
         })()
       : new Date().toISOString();
 
-    logMeal({ name: mealName, items, flag, timestamp: ts });
+    logMeal({
+      name: mealName,
+      items: getEffectiveItems(items),
+      flag,
+      timestamp: ts,
+    });
     showToast('✓ Meal logged to Daily Log');
     setShowLogPanel(false);
     setLogTimestamp('');
@@ -118,13 +153,13 @@ export default function MealScorer({ onNavigate }) {
 
   const handleSaveFavorite = () => {
     if (!items.length) return;
-    saveFavorite({ name: mealName, items });
+    saveFavorite({ name: mealName, items: getEffectiveItems(items) });
     showToast('⭐ Saved as favorite');
   };
 
   const handleSaveTemplate = () => {
     if (!items.length) return;
-    saveTemplate({ name: mealName, items });
+    saveTemplate({ name: mealName, items: getEffectiveItems(items) });
     showToast('📋 Saved as template');
   };
 
@@ -137,8 +172,7 @@ export default function MealScorer({ onNavigate }) {
           background: '#1a2d3d', border: `1px solid ${toast.color}`,
           borderRadius: 8, padding: '10px 20px', fontSize: 13,
           color: toast.color, fontWeight: 600, zIndex: 500,
-          boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
-          whiteSpace: 'nowrap',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.4)', whiteSpace: 'nowrap',
         }}>
           {toast.msg}
         </div>
@@ -155,8 +189,12 @@ export default function MealScorer({ onNavigate }) {
         </p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 220px', gap: 24, alignItems: 'start' }}>
-
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'minmax(0,1fr) 220px',
+        gap: 24,
+        alignItems: 'start',
+      }}>
         {/* Left: meal builder */}
         <div>
           {/* Meal name */}
@@ -205,15 +243,15 @@ export default function MealScorer({ onNavigate }) {
                 idx={idx}
                 onRemove={removeItem}
                 onChangePortion={changePortion}
+                onChangeQuantity={changeQuantity}
                 onSwap={swapIngredient}
               />
             ))
           )}
 
-          {/* Action buttons — only show when meal has items */}
+          {/* Action buttons */}
           {items.length > 0 && score && (
             <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-
               {/* Log this meal */}
               <div style={{
                 background: '#0d1b27', border: '1px solid #1e2d3d',
@@ -235,9 +273,7 @@ export default function MealScorer({ onNavigate }) {
                   <div style={{ padding: '14px 16px' }}>
                     <MealFlag selected={flag} onChange={setFlag} />
                     <div style={{ marginTop: 14 }}>
-                      <div style={{ fontSize: 11, color: '#5a7a96', marginBottom: 6, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                        Time
-                      </div>
+                      <div className="label-sm" style={{ marginBottom: 6 }}>Time</div>
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                         <input
                           type="time"
@@ -249,9 +285,7 @@ export default function MealScorer({ onNavigate }) {
                             fontSize: 13, fontFamily: 'inherit',
                           }}
                         />
-                        <span style={{ fontSize: 11, color: '#5a7a96' }}>
-                          leave blank for now
-                        </span>
+                        <span style={{ fontSize: 11, color: '#5a7a96' }}>leave blank for now</span>
                       </div>
                     </div>
                     <button
@@ -271,18 +305,10 @@ export default function MealScorer({ onNavigate }) {
 
               {/* Save actions */}
               <div style={{ display: 'flex', gap: 8 }}>
-                <button
-                  className="btn-ghost"
-                  onClick={handleSaveFavorite}
-                  style={{ flex: 1, fontSize: 12 }}
-                >
+                <button className="btn-ghost" onClick={handleSaveFavorite} style={{ flex: 1, fontSize: 12 }}>
                   ⭐ Save as favorite
                 </button>
-                <button
-                  className="btn-ghost"
-                  onClick={handleSaveTemplate}
-                  style={{ flex: 1, fontSize: 12 }}
-                >
+                <button className="btn-ghost" onClick={handleSaveTemplate} style={{ flex: 1, fontSize: 12 }}>
                   📋 Save as template
                 </button>
               </div>
