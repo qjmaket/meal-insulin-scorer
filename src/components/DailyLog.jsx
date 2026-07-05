@@ -8,7 +8,7 @@ import {
   getHydration, upsertHydration,
   getFastingWindow, upsertFastingWindow,
   getSavedMeals, deleteSavedMeal,
-  getRecentMealLogs,
+  getRecentMealLogs, updateFastingWindowFromMeal,
 } from '../lib/db';
 import { MEAL_FLAGS, getFlagByValue } from '../utils/dailyLog';
 import { todayKey, formatTime } from '../utils/storage';
@@ -409,11 +409,16 @@ export default function DailyLog({ profile, user, onNavigate }) {
   };
 
   const handleQuickLog = async (meal) => {
+    const ts = new Date().toISOString();
     const { error } = await insertMealLog(userId, {
       ...meal,
-      timestamp: new Date().toISOString(),
+      timestamp: ts,
+      fastingSafe: meal.fastingSafe || false,
     });
     if (error) { showToast('Failed to log meal.', '#E84545'); return; }
+    // Update fasting window — skipped if fastingSafe
+    const date = ts.split('T')[0];
+    await updateFastingWindowFromMeal(userId, date, ts, meal.fastingSafe || false);
     refresh();
     showToast('✓ Meal logged');
   };

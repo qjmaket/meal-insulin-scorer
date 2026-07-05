@@ -4,7 +4,7 @@ import MealItem from './MealItem';
 import ScorePanel from './ScorePanel';
 import MealFlag from './MealFlag';
 import { getMealScore, FOOD_DB } from '../foodData';
-import { insertMealLog, insertSavedMeal } from '../lib/db';
+import { insertMealLog, insertSavedMeal, updateFastingWindowFromMeal } from '../lib/db';
 
 const PRESET_MEALS = [
   {
@@ -63,6 +63,7 @@ export default function MealScorer({ profile, user, onNavigate }) {
   const [flag, setFlag]                 = useState(null);
   const [showLogPanel, setShowLogPanel] = useState(false);
   const [logTimestamp, setLogTimestamp] = useState('');
+  const [fastingSafe, setFastingSafe]   = useState(false);
   const [toast, setToast]               = useState(null);
   const [logging, setLogging]           = useState(false);
 
@@ -133,15 +134,20 @@ export default function MealScorer({ profile, user, onNavigate }) {
       items: getEffectiveItems(items),
       flag,
       timestamp: ts,
+      fastingSafe,
     });
 
     setLogging(false);
     if (error) {
       showToast('Failed to log meal. Try again.', '#E84545');
     } else {
-      showToast('✓ Meal logged to Daily Log');
+      // Update fasting window — skipped automatically if fastingSafe is true
+      const date = ts.split('T')[0];
+      await updateFastingWindowFromMeal(user.id, date, ts, fastingSafe);
+      showToast(fastingSafe ? '✓ Logged — fast window preserved' : '✓ Meal logged to Daily Log');
       setShowLogPanel(false);
       setLogTimestamp('');
+      setFastingSafe(false);
     }
   };
 
@@ -263,6 +269,37 @@ export default function MealScorer({ profile, user, onNavigate }) {
                         <span style={{ fontSize: 11, color: '#5a7a96' }}>leave blank for now</span>
                       </div>
                     </div>
+                    {/* Fasting-safe toggle */}
+                    <div
+                      onClick={() => setFastingSafe(f => !f)}
+                      style={{
+                        marginTop: 14, padding: '10px 12px',
+                        background: fastingSafe ? '#0a2a25' : '#0d1b27',
+                        border: `1px solid ${fastingSafe ? '#00C9A7' : '#1e3a52'}`,
+                        borderRadius: 6, cursor: 'pointer',
+                        display: 'flex', alignItems: 'flex-start', gap: 10,
+                      }}
+                    >
+                      <div style={{
+                        width: 16, height: 16, borderRadius: 3, flexShrink: 0,
+                        border: `2px solid ${fastingSafe ? '#00C9A7' : '#3a5a76'}`,
+                        background: fastingSafe ? '#00C9A7' : 'none',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        marginTop: 1,
+                        transition: 'all 0.15s',
+                      }}>
+                        {fastingSafe && <span style={{ fontSize: 10, color: '#0F1923', fontWeight: 700 }}>✓</span>}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: fastingSafe ? '#00C9A7' : '#5a7a96' }}>
+                          Fasting-safe supplement
+                        </div>
+                        <div style={{ fontSize: 11, color: '#3a5a76', marginTop: 2, lineHeight: 1.4 }}>
+                          Log without breaking your fast window. Use for supplements with negligible insulin impact (e.g. amino acids, electrolytes).
+                        </div>
+                      </div>
+                    </div>
+
                     <button onClick={handleLogMeal} disabled={logging} style={{
                       marginTop: 14, width: '100%',
                       background: logging ? '#1a2d3d' : '#00C9A7',

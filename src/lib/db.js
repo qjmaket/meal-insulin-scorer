@@ -79,6 +79,7 @@ export async function insertMealLog(userId, meal) {
     log_date: date,
     name: meal.name || 'Meal',
     flag: meal.flag || null,
+    fasting_safe: meal.fastingSafe === true,
     timestamp: meal.timestamp || new Date().toISOString(),
     items: meal.items.map(i => ({
       foodId: i.food.id,
@@ -290,6 +291,29 @@ export async function deleteSavedMeal(userId, id) {
     .eq('user_id', userId);
 
   return { error };
+}
+
+// ── Fasting window auto-update from meal log ─────────────
+
+/**
+ * Update fasting window when a meal is logged.
+ * Skipped entirely if fastingSafe is true.
+ * Sets first_meal if not already set for today.
+ * Always updates last_meal to the most recent meal timestamp.
+ */
+export async function updateFastingWindowFromMeal(userId, date, timestamp, fastingSafe) {
+  if (fastingSafe) return { error: null }; // explicitly skip — user says fast not broken
+
+  const { data: current } = await getFastingWindow(userId, date);
+
+  const ts = timestamp || new Date().toISOString();
+  const updates = {
+    last_meal: ts,
+    // Only set first_meal if not already recorded for today
+    first_meal: current?.first_meal || ts,
+  };
+
+  return upsertFastingWindow(userId, date, updates);
 }
 
 // ── Daily totals helper ───────────────────────────────────
