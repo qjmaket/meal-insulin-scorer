@@ -340,3 +340,100 @@ export function calcDailyTotals(logs) {
     };
   }, { calories: 0, protein: 0, carbs: 0, fat: 0, netScore: 0, mealCount: 0 });
 }
+
+// ── Body stats log ────────────────────────────────────────
+
+/**
+ * Get body stats entries for a user, most recent first
+ * @param {string} userId
+ * @param {number} limit - number of entries to return
+ */
+export async function getBodyStats(userId, limit = 30) {
+  const { data, error } = await supabase
+    .from('body_stats_log')
+    .select('*')
+    .eq('user_id', userId)
+    .order('log_date', { ascending: false })
+    .limit(limit);
+  return { data: data || [], error };
+}
+
+/**
+ * Insert or update a body stats entry for a date
+ */
+export async function upsertBodyStats(userId, entry) {
+  const { data, error } = await supabase
+    .from('body_stats_log')
+    .upsert({
+      user_id:      userId,
+      log_date:     entry.log_date || new Date().toISOString().split('T')[0],
+      weight_lbs:   entry.weight_lbs   || null,
+      body_fat_pct: entry.body_fat_pct || null,
+      waist_in:     entry.waist_in     || null,
+      hip_in:       entry.hip_in       || null,
+      neck_in:      entry.neck_in      || null,
+      notes:        entry.notes        || null,
+    }, { onConflict: 'user_id,log_date' })
+    .select()
+    .single();
+  return { data, error };
+}
+
+/**
+ * Delete a body stats entry
+ */
+export async function deleteBodyStats(userId, id) {
+  const { error } = await supabase
+    .from('body_stats_log')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', userId);
+  return { error };
+}
+
+// ── Dashboard data aggregation ────────────────────────────
+
+/**
+ * Get meal logs for the last N days grouped by date
+ * Returns { date, logs, avgScore, totals } per day
+ */
+export async function getDashboardLogs(userId, days = 7) {
+  const since = new Date();
+  since.setDate(since.getDate() - days + 1);
+  const sinceStr = since.toISOString().split('T')[0];
+
+  const { data, error } = await supabase
+    .from('meal_logs')
+    .select('*')
+    .eq('user_id', userId)
+    .gte('log_date', sinceStr)
+    .order('log_date', { ascending: true });
+
+  if (error) return { data: [], error };
+
+  // Group by date
+  const byDate = {};
+  for (let i = 0; i < days; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - days + 1 + i);
+    const key = d.toISOString().split('T')[0];
+    byDate[key] = { date: key, logs: [], avgScore: null, totals: null };
+  }
+
+  (data || []).forEach(log => {
+    if (byDate[log.log_date]) {
+      byDate[log.log_date].logs.push(log);
+    }
+  });
+
+  // Calculate per-day metrics
+  Object.values(byDate).forEach(day => {
+    if (!day.logs.length) return;
+    const totals = calcDailyTotals(day.logs);
+    day.totals = totals;
+    day.avgScore = totals.mealCount > 0
+      ? totals.netScore / totals.mealCount : null;
+  });
+
+  return { data: Object.values(byDate), error: null };
+}

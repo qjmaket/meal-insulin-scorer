@@ -10,7 +10,7 @@ import { loadProfile, saveProfile } from './lib/db';
 import { calcProfile } from './utils/calculations';
 
 export default function App() {
-  const [screen, setScreen]     = useState('scorer');
+  const [screen, setScreen]     = useState('dashboard');
   const [session, setSession]   = useState(null);
   const [profile, setProfile]   = useState(null);
   const [targets, setTargets]   = useState(null);
