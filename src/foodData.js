@@ -376,6 +376,16 @@ export const FOOD_DB = [
   category: "Supplements", gi: 0, 
   carbP100: 0.0, fiberP100: 0.0, proteinP100: 76.6, fatP100: 0.0, 
   portions: [{ label: "1 scoop (6.53g)", g: 6.53 }, { label: "2 scoops", g: 13 }] },
+
+{ id: 307, name: "Water", 
+  category: "Beverages", gi: 0, 
+  carbP100: 0.0, fiberP100: 0.0, proteinP100: 0.0, fatP100: 0.0, 
+  portions: [
+    { label: "8 oz (1 cup)", g: 240 },
+    { label: "12 oz", g: 355 },
+    { label: "16 oz", g: 480 },
+    { label: "20 oz", g: 591 },
+  ] },
 ];
 
 export const CATEGORIES = [...new Set(FOOD_DB.map(f => f.category))];
