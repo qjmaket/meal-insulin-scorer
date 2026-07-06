@@ -206,7 +206,14 @@ export default function MealScorer({ profile, targets, user, onNavigate, preload
         </p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 220px', gap: 24, alignItems: 'start' }}>
+      {/* Responsive layout — single column on mobile, two columns on wider screens */}
+      <style>{`
+        @media (max-width: 640px) {
+          .meal-scorer-grid { grid-template-columns: 1fr !important; }
+          .score-panel-sticky { position: static !important; margin-top: 24px; }
+        }
+      `}</style>
+      <div className="meal-scorer-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 220px', gap: 24, alignItems: 'start' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
             {editingName ? (
@@ -346,7 +353,7 @@ export default function MealScorer({ profile, targets, user, onNavigate, preload
           </div>
         </div>
 
-        <div style={{ position: 'sticky', top: 16 }}>
+        <div className="score-panel-sticky" style={{ position: 'sticky', top: 16 }}>
           <ScorePanel score={score} />
         </div>
       </div>

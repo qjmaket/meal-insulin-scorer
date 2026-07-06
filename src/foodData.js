@@ -386,6 +386,20 @@ export const FOOD_DB = [
     { label: "16 oz", g: 480 },
     { label: "20 oz", g: 591 },
   ] },
+
+{ id: 308, name: "Chick-fil-A Grilled Filet",
+  category: "Protein", gi: 0,
+  carbP100: 10.9, fiberP100: 0.0, proteinP100: 21.8, fatP100: 10.9,
+  portions: [{ label: "1 filet (approx 110g)", g: 110 }] },
+
+{ id: 309, name: "Chick-fil-A Waffle Potato Fries - Medium (estimated GI)",
+  category: "Snacks & Sweets", gi: 63,
+  carbP100: 36.0, fiberP100: 4.0, proteinP100: 4.0, fatP100: 19.2,
+  portions: [
+    { label: "Medium serving", g: 125 },
+    { label: "Small serving", g: 85 },
+    { label: "Large serving", g: 170 },
+  ] },
 ];
 
 export const CATEGORIES = [...new Set(FOOD_DB.map(f => f.category))];
