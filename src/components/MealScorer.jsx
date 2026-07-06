@@ -1,10 +1,10 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import FoodSearch from './FoodSearch';
 import MealItem from './MealItem';
 import ScorePanel from './ScorePanel';
 import MealFlag from './MealFlag';
 import { getMealScore, FOOD_DB } from '../foodData';
-import { insertMealLog, insertSavedMeal, updateFastingWindowFromMeal } from '../lib/db';
+import { insertMealLog, insertSavedMeal } from '../lib/db';
 
 const PRESET_MEALS = [
   {
@@ -56,7 +56,7 @@ function getEffectiveItems(items) {
   }));
 }
 
-export default function MealScorer({ profile, user, onNavigate }) {
+export default function MealScorer({ profile, targets, user, onNavigate, preloadMeal, onPreloadConsumed }) {
   const [items, setItems]               = useState([]);
   const [mealName, setMealName]         = useState('My Meal');
   const [editingName, setEditingName]   = useState(false);
@@ -66,6 +66,16 @@ export default function MealScorer({ profile, user, onNavigate }) {
   const [fastingSafe, setFastingSafe]   = useState(false);
   const [toast, setToast]               = useState(null);
   const [logging, setLogging]           = useState(false);
+
+  // Consume preloaded meal from Quick Log or Dashboard
+  useEffect(() => {
+    if (!preloadMeal) return;
+    setItems((preloadMeal.items || []).map(i => ({ ...i, quantity: i.quantity || 1 })));
+    setMealName(preloadMeal.name || 'My Meal');
+    setFlag(null);
+    setShowLogPanel(false);
+    onPreloadConsumed?.();
+  }, [preloadMeal]);
 
   const score = getMealScore(getEffectiveItems(items));
 
@@ -141,9 +151,6 @@ export default function MealScorer({ profile, user, onNavigate }) {
     if (error) {
       showToast('Failed to log meal. Try again.', '#E84545');
     } else {
-      // Update fasting window — skipped automatically if fastingSafe is true
-      const date = ts.split('T')[0];
-      await updateFastingWindowFromMeal(user.id, date, ts, fastingSafe);
       showToast(fastingSafe ? '✓ Logged — fast window preserved' : '✓ Meal logged to Daily Log');
       setShowLogPanel(false);
       setLogTimestamp('');

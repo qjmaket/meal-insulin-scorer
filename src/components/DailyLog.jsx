@@ -7,7 +7,7 @@ import {
   insertMealLog, insertSavedMeal, calcDailyTotals,
   getHydration, upsertHydration,
   getFastingWindow, upsertFastingWindow,
-  getSavedMeals, deleteSavedMeal,
+  getSavedMeals, deleteSavedMeal, updateSavedMealName,
   getRecentMealLogs, updateFastingWindowFromMeal,
 } from '../lib/db';
 import { MEAL_FLAGS, getFlagByValue } from '../utils/dailyLog';
@@ -161,12 +161,14 @@ function LoggedMealCard({ entry, onDelete, onUpdateTimestamp, onFavorite }) {
 
 // ── Supabase-backed QuickLog ──────────────────────────────
 
-function SupabaseQuickLog({ userId, onLogMeal }) {
-  const [tab, setTab]           = useState('favorites');
+function SupabaseQuickLog({ userId, onLogMeal, onLoadInScorer }) {
+  const [tab, setTab]             = useState('favorites');
   const [favorites, setFavorites] = useState([]);
   const [templates, setTemplates] = useState([]);
-  const [recent, setRecent]     = useState([]);
-  const [loading, setLoading]   = useState(true);
+  const [recent, setRecent]       = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [renamingId, setRenamingId] = useState(null);
+  const [renameVal, setRenameVal]   = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -183,7 +185,7 @@ function SupabaseQuickLog({ userId, onLogMeal }) {
 
   useEffect(() => { load(); }, [load]);
 
-  const handleDelete = async (id, type) => {
+  const handleDelete = async (id) => {
     await deleteSavedMeal(userId, id);
     load();
   };
@@ -199,6 +201,30 @@ function SupabaseQuickLog({ userId, onLogMeal }) {
     });
   };
 
+  const handleLoadInScorer = (meal) => {
+    onLoadInScorer?.({
+      name: meal.name,
+      items: (meal.items || []).map(i => ({
+        food: i.food || { id: i.foodId, name: i.foodName, gi: 0, carbP100: 0, fiberP100: 0, proteinP100: 0, fatP100: 0, portions: [{ label: 'serving', g: i.grams }] },
+        grams: i.grams,
+        portionIdx: i.portionIdx || 0,
+        quantity: i.quantity || 1,
+      })),
+    });
+  };
+
+  const startRename = (meal) => {
+    setRenamingId(meal.id);
+    setRenameVal(meal.name);
+  };
+
+  const commitRename = async (id) => {
+    if (!renameVal.trim()) { setRenamingId(null); return; }
+    await updateSavedMealName(userId, id, renameVal.trim());
+    setRenamingId(null);
+    load();
+  };
+
   const scoreColor = (score) => {
     if (!score) return '#5a7a96';
     return score.rating === 'Low' ? '#00C9A7' : score.rating === 'Moderate' ? '#F5A623' : '#E84545';
@@ -209,7 +235,74 @@ function SupabaseQuickLog({ userId, onLogMeal }) {
     return score.rating === 'Low' ? '#0a2a25' : score.rating === 'Moderate' ? '#2a2010' : '#2a1010';
   };
 
-  const MealRow = ({ meal, onLog, onDelete }) => (
+  const SavedMealRow = ({ meal, onLog, onDelete, onLoad, showLoad }) => (
+    <div style={{ padding: '10px 0', borderBottom: '1px solid #1e2d3d' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+        {/* Inline rename */}
+        {renamingId === meal.id ? (
+          <input
+            autoFocus
+            value={renameVal}
+            onChange={e => setRenameVal(e.target.value)}
+            onBlur={() => commitRename(meal.id)}
+            onKeyDown={e => { if (e.key === 'Enter') commitRename(meal.id); if (e.key === 'Escape') setRenamingId(null); }}
+            style={{
+              flex: 1, background: '#1a2d3d', border: '1px solid #00C9A7',
+              borderRadius: 4, color: '#F0EDE6', padding: '3px 8px',
+              fontSize: 13, fontFamily: 'inherit',
+            }}
+          />
+        ) : (
+          <button
+            onClick={() => startRename(meal)}
+            title="Tap to rename"
+            style={{
+              flex: 1, background: 'none', border: 'none', textAlign: 'left',
+              color: '#F0EDE6', fontSize: 13, fontWeight: 500, cursor: 'pointer',
+              fontFamily: 'inherit', padding: 0,
+            }}
+          >
+            {meal.name}
+            <span style={{ fontSize: 10, color: '#3a5a76', marginLeft: 6 }}>✎</span>
+          </button>
+        )}
+        {meal.score && (
+          <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: scoreBg(meal.score), color: scoreColor(meal.score), fontWeight: 600, flexShrink: 0 }}>
+            {meal.score.netScore?.toFixed(1)}
+          </span>
+        )}
+      </div>
+      {meal.score && (
+        <div style={{ fontSize: 11, color: '#5a7a96', display: 'flex', gap: 8, marginBottom: 6 }}>
+          <span>P {meal.score.totalProtein?.toFixed(0)}g</span>
+          <span>C {meal.score.totalCarbs?.toFixed(0)}g</span>
+          <span>F {meal.score.totalFat?.toFixed(0)}g</span>
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 6 }}>
+        <button onClick={() => onLog(meal)} style={{
+          background: '#00C9A7', border: 'none', borderRadius: 4,
+          color: '#0F1923', fontSize: 11, fontWeight: 600,
+          padding: '5px 10px', cursor: 'pointer', fontFamily: 'inherit',
+        }}>Log now</button>
+        {showLoad && (
+          <button onClick={() => onLoad(meal)} style={{
+            background: 'none', border: '1px solid #1e3a52', borderRadius: 4,
+            color: '#5a7a96', fontSize: 11,
+            padding: '5px 10px', cursor: 'pointer', fontFamily: 'inherit',
+          }}>Edit in scorer ↗</button>
+        )}
+        {onDelete && (
+          <button onClick={() => onDelete(meal.id)} style={{
+            background: 'none', border: 'none', color: '#3a5a76',
+            fontSize: 16, cursor: 'pointer', marginLeft: 'auto',
+          }}>×</button>
+        )}
+      </div>
+    </div>
+  );
+
+  const RecentRow = ({ meal }) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid #1e2d3d' }}>
       <div style={{ flex: 1 }}>
         <div style={{ fontSize: 13, fontWeight: 500, color: '#F0EDE6', marginBottom: 2 }}>{meal.name}</div>
@@ -225,17 +318,11 @@ function SupabaseQuickLog({ userId, onLogMeal }) {
           {meal.score.netScore?.toFixed(1)}
         </span>
       )}
-      <button onClick={() => onLog(meal)} style={{
+      <button onClick={() => handleLog(meal)} style={{
         background: '#00C9A7', border: 'none', borderRadius: 4,
         color: '#0F1923', fontSize: 11, fontWeight: 600,
         padding: '5px 10px', cursor: 'pointer', fontFamily: 'inherit',
       }}>Log</button>
-      {onDelete && (
-        <button onClick={() => onDelete(meal.id)} style={{
-          background: 'none', border: 'none', color: '#3a5a76',
-          fontSize: 16, cursor: 'pointer',
-        }}>×</button>
-      )}
     </div>
   );
 
@@ -259,22 +346,22 @@ function SupabaseQuickLog({ userId, onLogMeal }) {
           }}>{t.label}</button>
         ))}
       </div>
-      <div style={{ maxHeight: 280, overflowY: 'auto' }}>
+      <div style={{ maxHeight: 380, overflowY: 'auto' }}>
         {loading && <div style={{ fontSize: 12, color: '#5a7a96', padding: '12px 0', textAlign: 'center' }}>Loading…</div>}
         {!loading && tab === 'favorites' && (
           favorites.length === 0
             ? <div style={{ fontSize: 12, color: '#5a7a96', padding: '12px 0', textAlign: 'center', lineHeight: 1.6 }}>No favorites yet.<br />Score a meal and tap ⭐ Save as favorite.</div>
-            : favorites.map(m => <MealRow key={m.id} meal={m} onLog={handleLog} onDelete={(id) => handleDelete(id, 'favorite')} />)
+            : favorites.map(m => <SavedMealRow key={m.id} meal={m} onLog={handleLog} onDelete={handleDelete} onLoad={handleLoadInScorer} showLoad={!!onLoadInScorer} />)
         )}
         {!loading && tab === 'templates' && (
           templates.length === 0
             ? <div style={{ fontSize: 12, color: '#5a7a96', padding: '12px 0', textAlign: 'center', lineHeight: 1.6 }}>No templates yet.<br />Score a meal and tap 📋 Save as template.</div>
-            : templates.map(m => <MealRow key={m.id} meal={m} onLog={handleLog} onDelete={(id) => handleDelete(id, 'template')} />)
+            : templates.map(m => <SavedMealRow key={m.id} meal={m} onLog={handleLog} onDelete={handleDelete} onLoad={handleLoadInScorer} showLoad={!!onLoadInScorer} />)
         )}
         {!loading && tab === 'recent' && (
           recent.length === 0
             ? <div style={{ fontSize: 12, color: '#5a7a96', padding: '12px 0', textAlign: 'center' }}>No meals logged in the last 7 days.</div>
-            : recent.map(m => <MealRow key={m.id} meal={m} onLog={handleLog} />)
+            : recent.map(m => <RecentRow key={m.id} meal={m} />)
         )}
       </div>
     </div>
@@ -525,7 +612,7 @@ export default function DailyLog({ profile, targets: propTargets, user, onNaviga
       )}
 
       {activeTab === 'quick' && userId && (
-        <SupabaseQuickLog userId={userId} onLogMeal={handleQuickLog} />
+        <SupabaseQuickLog userId={userId} onLogMeal={handleQuickLog} onLoadInScorer={(meal) => onNavigate('scorer', meal)} />
       )}
     </div>
   );

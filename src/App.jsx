@@ -10,13 +10,14 @@ import { loadProfile, saveProfile } from './lib/db';
 import { calcProfile } from './utils/calculations';
 
 export default function App() {
-  const [screen, setScreen]     = useState('dashboard');
-  const [session, setSession]   = useState(null);
-  const [profile, setProfile]   = useState(null);
-  const [targets, setTargets]   = useState(null);
+  const [screen, setScreen]         = useState('dashboard');
+  const [session, setSession]       = useState(null);
+  const [profile, setProfile]       = useState(null);
+  const [targets, setTargets]       = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  // Preset meal to load into MealScorer from Quick Log or Dashboard
+  const [preloadMeal, setPreloadMeal] = useState(null);
 
-  // ── Auth state management ──────────────────────────────
   useEffect(() => {
     getSession().then(({ session }) => {
       setSession(session);
@@ -37,7 +38,6 @@ export default function App() {
     return unsubscribe;
   }, []);
 
-  // Reload profile when user navigates screens
   useEffect(() => {
     if (session?.user?.id) fetchProfile(session.user.id);
   }, [screen]);
@@ -46,8 +46,6 @@ export default function App() {
     const { data } = await loadProfile(userId);
     if (data) {
       setProfile(data);
-      // Derive macro targets from raw profile data
-      // calcProfile returns { calorieTarget, macros: { protein, carbs, fat }, bfPct, bmr, tdee }
       const calc = calcProfile(data);
       if (calc?.macros) {
         setTargets({
@@ -64,7 +62,6 @@ export default function App() {
     if (!session?.user?.id) return;
     await saveProfile(session.user.id, profileData);
     setProfile(profileData);
-    // Recalculate targets immediately after save
     const calc = calcProfile(profileData);
     if (calc?.macros) {
       setTargets({
@@ -76,9 +73,18 @@ export default function App() {
     }
   };
 
-  const handleNav = (id) => setScreen(id);
+  /**
+   * Navigate to a screen, optionally pre-loading a meal into MealScorer.
+   * @param {string} id - screen name
+   * @param {Object} [meal] - optional meal to preload { name, items }
+   */
+  const handleNav = (id, meal = null) => {
+    if (meal) setPreloadMeal(meal);
+    setScreen(id);
+  };
 
-  // ── Loading state ──────────────────────────────────────
+  const handleMealPreloadConsumed = () => setPreloadMeal(null);
+
   if (authLoading) {
     return (
       <div style={{
@@ -96,17 +102,18 @@ export default function App() {
     );
   }
 
-  // ── Not authenticated ──────────────────────────────────
   if (!session) return <AuthScreen />;
 
-  // ── Authenticated ──────────────────────────────────────
   const user = session.user;
 
   const screens = {
     dashboard: <Dashboard profile={profile} targets={targets} user={user} onNavigate={handleNav} />,
-    scorer:    <MealScorer profile={profile} targets={targets} user={user} onNavigate={handleNav} />,
-    log:       <DailyLog  profile={profile} targets={targets} user={user} onNavigate={handleNav} />,
-    profile:   <Profile   profile={profile} user={user} onSave={handleProfileSave} />,
+    scorer:    <MealScorer
+                 profile={profile} targets={targets} user={user} onNavigate={handleNav}
+                 preloadMeal={preloadMeal} onPreloadConsumed={handleMealPreloadConsumed}
+               />,
+    log:       <DailyLog profile={profile} targets={targets} user={user} onNavigate={handleNav} />,
+    profile:   <Profile profile={profile} user={user} onSave={handleProfileSave} />,
   };
 
   return (

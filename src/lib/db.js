@@ -437,3 +437,15 @@ export async function getDashboardLogs(userId, days = 7) {
 
   return { data: Object.values(byDate), error: null };
 }
+
+/**
+ * Rename a saved meal (favorite or template)
+ */
+export async function updateSavedMealName(userId, id, name) {
+  const { error } = await supabase
+    .from('saved_meals')
+    .update({ name })
+    .eq('id', id)
+    .eq('user_id', userId);
+  return { error };
+}
