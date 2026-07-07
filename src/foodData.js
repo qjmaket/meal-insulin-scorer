@@ -178,6 +178,8 @@ export const FOOD_DB = [
   { id: 156, name: "Brie cheese",                  category: "Dairy",        gi: 0,  carbP100: 0.5,  fiberP100: 0.0, proteinP100: 21.0, fatP100: 28.0, portions: [{ label: "1 oz", g: 28 }] },
   { id: 157, name: "Cream cheese",                 category: "Dairy",        gi: 0,  carbP100: 2.7,  fiberP100: 0.0, proteinP100: 5.9,  fatP100: 35.0, portions: [{ label: "1 tbsp", g: 14 }, { label: "2 tbsp", g: 28 }] },
   { id: 158, name: "Sour cream",                   category: "Dairy",        gi: 0,  carbP100: 3.6,  fiberP100: 0.0, proteinP100: 2.4,  fatP100: 21.0, portions: [{ label: "2 tbsp", g: 29 }, { label: "¼ cup", g: 58 }] },
+  // FLAGGED: duplicate entries conflicted on real values (protein/carb); kept this one
+  // as a judgment call with no third source to arbitrate — verify against USDA if precision matters here.
   { id: 159, name: "Kefir (plain)",                category: "Dairy",        gi: 30, carbP100: 4.5,  fiberP100: 0.0, proteinP100: 4.0,  fatP100: 3.5,  portions: [{ label: "½ cup", g: 120 }, { label: "1 cup", g: 240 }] },
   { id: 160, name: "Ice cream (vanilla, full fat)", category: "Dairy",       gi: 51, carbP100: 23.0, fiberP100: 0.0, proteinP100: 3.5,  fatP100: 11.0, portions: [{ label: "½ cup", g: 66 }, { label: "1 cup", g: 132 }] },
   { id: 161, name: "Oat milk",                     category: "Dairy",        gi: 69, carbP100: 7.0,  fiberP100: 0.8, proteinP100: 1.0,  fatP100: 1.5,  portions: [{ label: "½ cup", g: 120 }, { label: "1 cup", g: 240 }] },
@@ -236,6 +238,8 @@ export const FOOD_DB = [
   { id: 208, name: "Tomato juice",                 category: "Beverages",    gi: 38, carbP100: 4.2,  fiberP100: 0.4, proteinP100: 0.9,  fatP100: 0.1,  portions: [{ label: "8 oz", g: 243 }] },
   { id: 209, name: "Kombucha",                     category: "Beverages",    gi: 0,  carbP100: 2.5,  fiberP100: 0.0, proteinP100: 0.0,  fatP100: 0.0,  portions: [{ label: "8 oz", g: 240 }, { label: "16 oz", g: 480 }] },
   { id: 210, name: "Lemonade (sweetened)",         category: "Beverages",    gi: 54, carbP100: 11.0, fiberP100: 0.1, proteinP100: 0.1,  fatP100: 0.1,  portions: [{ label: "8 oz", g: 240 }] },
+  // FLAGGED: duplicate entries conflicted on real values (protein/carb); kept this one
+  // as a judgment call with no third source to arbitrate — verify against USDA if precision matters here.
   { id: 211, name: "Coconut water",                category: "Beverages",    gi: 54, carbP100: 4.7,  fiberP100: 1.1, proteinP100: 0.7,  fatP100: 0.2,  portions: [{ label: "8 oz", g: 240 }, { label: "16 oz", g: 480 }] },
   { id: 212, name: "Diet soda (0 sugar)",          category: "Beverages",    gi: 0,  carbP100: 0.0,  fiberP100: 0.0, proteinP100: 0.0,  fatP100: 0.0,  portions: [{ label: "12 oz can", g: 355 }] },
   { id: 213, name: "Red wine",                     category: "Beverages",    gi: 0,  carbP100: 2.7,  fiberP100: 0.0, proteinP100: 0.1,  fatP100: 0.0,  portions: [{ label: "5 oz glass", g: 148 }] },
@@ -260,7 +264,6 @@ export const FOOD_DB = [
   { id: 230, name: "Graham crackers",              category: "Snacks & Sweets", gi: 74, carbP100: 75.0, fiberP100: 2.8, proteinP100: 8.7,  fatP100: 9.6,  portions: [{ label: "2 crackers", g: 28 }] },
   { id: 231, name: "Saltine crackers",             category: "Snacks & Sweets", gi: 74, carbP100: 74.0, fiberP100: 2.2, proteinP100: 10.0, fatP100: 8.6,  portions: [{ label: "5 crackers", g: 15 }, { label: "10 crackers", g: 30 }] },
   { id: 232, name: "Whole grain crackers",         category: "Snacks & Sweets", gi: 67, carbP100: 67.0, fiberP100: 7.1, proteinP100: 10.0, fatP100: 12.0, portions: [{ label: "5 crackers", g: 28 }] },
-  { id: 233, name: "Rice cakes (plain)",           category: "Snacks & Sweets", gi: 82, carbP100: 81.0, fiberP100: 0.4, proteinP100: 7.3,  fatP100: 1.5,  portions: [{ label: "1 cake", g: 9 }, { label: "2 cakes", g: 18 }] },
   { id: 234, name: "Granola bar (oat-based)",      category: "Snacks & Sweets", gi: 61, carbP100: 64.0, fiberP100: 3.6, proteinP100: 7.7,  fatP100: 14.0, portions: [{ label: "1 bar", g: 47 }] },
   { id: 235, name: "Protein bar (typical)",        category: "Snacks & Sweets", gi: 50, carbP100: 38.0, fiberP100: 5.0, proteinP100: 20.0, fatP100: 10.0, portions: [{ label: "1 bar", g: 60 }] },
   { id: 236, name: "Donut (glazed)",               category: "Snacks & Sweets", gi: 76, carbP100: 53.0, fiberP100: 1.2, proteinP100: 6.3,  fatP100: 20.0, portions: [{ label: "1 medium", g: 60 }] },
@@ -281,7 +284,6 @@ export const FOOD_DB = [
   { id: 251, name: "Popcorn (buttered)",           category: "Snacks & Sweets", gi: 65, carbP100: 60.0, fiberP100: 7.2, proteinP100: 8.3,  fatP100: 22.0, portions: [{ label: "1 cup", g: 11 }, { label: "3 cups", g: 33 }] },
   { id: 252, name: "Granola (plain)",              category: "Snacks & Sweets", gi: 62, carbP100: 66.0, fiberP100: 5.3, proteinP100: 10.0, fatP100: 15.0, portions: [{ label: "¼ cup", g: 30 }, { label: "½ cup", g: 61 }] },
   { id: 253, name: "Rice crackers",                category: "Snacks & Sweets", gi: 91, carbP100: 82.0, fiberP100: 1.6, proteinP100: 7.8,  fatP100: 1.5,  portions: [{ label: "5 crackers", g: 15 }, { label: "10 crackers", g: 30 }] },
-  { id: 254, name: "Mixed nuts (salted)",          category: "Snacks & Sweets", gi: 15, carbP100: 21.0, fiberP100: 7.5, proteinP100: 14.0, fatP100: 59.0, portions: [{ label: "1 oz", g: 28 }, { label: "¼ cup", g: 34 }] },
   { id: 255, name: "Chocolate-covered almonds",    category: "Snacks & Sweets", gi: 20, carbP100: 38.0, fiberP100: 6.0, proteinP100: 12.0, fatP100: 43.0, portions: [{ label: "1 oz", g: 28 }, { label: "¼ cup", g: 40 }] },
   { id: 256, name: "Pita chips",                   category: "Snacks & Sweets", gi: 68, carbP100: 65.0, fiberP100: 3.4, proteinP100: 9.5,  fatP100: 16.0, portions: [{ label: "1 oz (~11 chips)", g: 28 }] },
   { id: 257, name: "Energy bar (Clif Bar)",        category: "Snacks & Sweets", gi: 57, carbP100: 64.0, fiberP100: 5.5, proteinP100: 10.0, fatP100: 7.0,  portions: [{ label: "1 bar", g: 68 }] },
@@ -290,54 +292,25 @@ export const FOOD_DB = [
   { id: 260, name: "Kettle corn",                  category: "Snacks & Sweets", gi: 65, carbP100: 68.0, fiberP100: 5.0, proteinP100: 8.0,  fatP100: 16.0, portions: [{ label: "1 cup", g: 11 }, { label: "3 cups", g: 33 }] },
 
   // Beverages (expanding to 30)
-  { id: 261, name: "Coconut water",                category: "Beverages",       gi: 54, carbP100: 9.0,  fiberP100: 1.1, proteinP100: 0.7,  fatP100: 0.2,  portions: [{ label: "8 oz", g: 240 }, { label: "1 cup", g: 240 }] },
-  { id: 262, name: "Sports drink (Gatorade)",      category: "Beverages",       gi: 78, carbP100: 6.0,  fiberP100: 0.0, proteinP100: 0.0,  fatP100: 0.0,  portions: [{ label: "8 oz", g: 240 }, { label: "20 oz bottle", g: 591 }] },
-  { id: 263, name: "Almond milk (unsweetened)",    category: "Beverages",       gi: 25, carbP100: 1.3,  fiberP100: 0.4, proteinP100: 0.6,  fatP100: 1.3,  portions: [{ label: "½ cup", g: 122 }, { label: "1 cup", g: 244 }] },
-  { id: 264, name: "Oat milk (unsweetened)",       category: "Beverages",       gi: 69, carbP100: 6.6,  fiberP100: 0.8, proteinP100: 1.0,  fatP100: 1.5,  portions: [{ label: "½ cup", g: 122 }, { label: "1 cup", g: 244 }] },
-  { id: 265, name: "Soy milk (unsweetened)",       category: "Beverages",       gi: 34, carbP100: 3.0,  fiberP100: 0.4, proteinP100: 3.3,  fatP100: 1.8,  portions: [{ label: "½ cup", g: 122 }, { label: "1 cup", g: 244 }] },
-  { id: 266, name: "Green tea (unsweetened)",      category: "Beverages",       gi: 0,  carbP100: 0.2,  fiberP100: 0.0, proteinP100: 0.2,  fatP100: 0.0,  portions: [{ label: "8 oz cup", g: 240 }, { label: "16 oz", g: 480 }] },
-  { id: 267, name: "Black coffee",                 category: "Beverages",       gi: 0,  carbP100: 0.0,  fiberP100: 0.0, proteinP100: 0.3,  fatP100: 0.0,  portions: [{ label: "8 oz cup", g: 240 }, { label: "12 oz", g: 360 }] },
-  { id: 268, name: "Grape juice (100%)",           category: "Beverages",       gi: 52, carbP100: 16.0, fiberP100: 0.2, proteinP100: 0.6,  fatP100: 0.1,  portions: [{ label: "4 oz", g: 124 }, { label: "8 oz", g: 248 }] },
-  { id: 269, name: "Tomato juice",                 category: "Beverages",       gi: 38, carbP100: 4.2,  fiberP100: 0.4, proteinP100: 0.9,  fatP100: 0.1,  portions: [{ label: "4 oz", g: 122 }, { label: "8 oz", g: 243 }] },
   { id: 270, name: "Kombucha (original)",          category: "Beverages",       gi: 25, carbP100: 7.0,  fiberP100: 0.0, proteinP100: 0.3,  fatP100: 0.0,  portions: [{ label: "8 oz", g: 240 }, { label: "1 bottle (16 oz)", g: 480 }] },
 
   // Fats & Oils (expanding to 25)
-  { id: 271, name: "Avocado oil",                  category: "Fats & Oils",     gi: 0,  carbP100: 0.0,  fiberP100: 0.0, proteinP100: 0.0,  fatP100: 100.0, portions: [{ label: "1 tsp", g: 5 }, { label: "1 tbsp", g: 14 }] },
   { id: 272, name: "Ghee",                         category: "Fats & Oils",     gi: 0,  carbP100: 0.0,  fiberP100: 0.0, proteinP100: 0.1,  fatP100: 99.5, portions: [{ label: "1 tsp", g: 5 }, { label: "1 tbsp", g: 14 }] },
-  { id: 273, name: "Sesame oil",                   category: "Fats & Oils",     gi: 0,  carbP100: 0.0,  fiberP100: 0.0, proteinP100: 0.0,  fatP100: 100.0, portions: [{ label: "1 tsp", g: 5 }, { label: "1 tbsp", g: 14 }] },
-  { id: 274, name: "Flaxseed oil",                 category: "Fats & Oils",     gi: 0,  carbP100: 0.0,  fiberP100: 0.0, proteinP100: 0.0,  fatP100: 100.0, portions: [{ label: "1 tsp", g: 5 }, { label: "1 tbsp", g: 14 }] },
-  { id: 275, name: "Cream cheese",                 category: "Fats & Oils",     gi: 0,  carbP100: 4.1,  fiberP100: 0.0, proteinP100: 5.8,  fatP100: 34.0, portions: [{ label: "1 tbsp", g: 15 }, { label: "2 tbsp", g: 30 }] },
   { id: 276, name: "Sour cream (full fat)",        category: "Fats & Oils",     gi: 0,  carbP100: 4.3,  fiberP100: 0.0, proteinP100: 2.1,  fatP100: 20.0, portions: [{ label: "1 tbsp", g: 12 }, { label: "¼ cup", g: 60 }] },
   { id: 277, name: "Heavy cream",                  category: "Fats & Oils",     gi: 0,  carbP100: 2.8,  fiberP100: 0.0, proteinP100: 2.0,  fatP100: 36.0, portions: [{ label: "1 tbsp", g: 15 }, { label: "2 tbsp", g: 30 }] },
   { id: 278, name: "Tahini",                       category: "Fats & Oils",     gi: 35, carbP100: 21.0, fiberP100: 9.3, proteinP100: 17.0, fatP100: 53.0, portions: [{ label: "1 tbsp", g: 15 }, { label: "2 tbsp", g: 30 }] },
-  { id: 279, name: "Mayonnaise (regular)",         category: "Fats & Oils",     gi: 0,  carbP100: 0.6,  fiberP100: 0.0, proteinP100: 0.9,  fatP100: 75.0, portions: [{ label: "1 tbsp", g: 15 }, { label: "2 tbsp", g: 30 }] },
-  { id: 280, name: "Almond butter",                category: "Fats & Oils",     gi: 0,  carbP100: 19.0, fiberP100: 10.0, proteinP100: 21.0, fatP100: 56.0, portions: [{ label: "1 tbsp", g: 16 }, { label: "2 tbsp", g: 32 }] },
 
   // Dairy (expanding to 30)
-  { id: 281, name: "Kefir (plain)",                category: "Dairy",           gi: 18, carbP100: 7.0,  fiberP100: 0.0, proteinP100: 10.0, fatP100: 1.5,  portions: [{ label: "½ cup", g: 122 }, { label: "1 cup", g: 244 }] },
-  { id: 282, name: "Ricotta (part-skim)",          category: "Dairy",           gi: 27, carbP100: 7.9,  fiberP100: 0.0, proteinP100: 11.0, fatP100: 7.9,  portions: [{ label: "¼ cup", g: 62 }, { label: "½ cup", g: 124 }] },
-  { id: 283, name: "Parmesan (grated)",            category: "Dairy",           gi: 0,  carbP100: 3.2,  fiberP100: 0.0, proteinP100: 35.0, fatP100: 29.0, portions: [{ label: "1 tbsp", g: 5 }, { label: "2 tbsp", g: 10 }, { label: "¼ cup", g: 25 }] },
-  { id: 284, name: "Feta cheese",                  category: "Dairy",           gi: 0,  carbP100: 4.1,  fiberP100: 0.0, proteinP100: 14.0, fatP100: 21.0, portions: [{ label: "1 oz", g: 28 }, { label: "¼ cup crumbled", g: 38 }] },
   { id: 285, name: "String cheese",                category: "Dairy",           gi: 0,  carbP100: 2.4,  fiberP100: 0.0, proteinP100: 8.0,  fatP100: 6.0,  portions: [{ label: "1 stick", g: 28 }] },
-  { id: 286, name: "2% milk",                      category: "Dairy",           gi: 30, carbP100: 4.8,  fiberP100: 0.0, proteinP100: 3.3,  fatP100: 2.0,  portions: [{ label: "½ cup", g: 122 }, { label: "1 cup", g: 244 }] },
-  { id: 287, name: "Ice cream (vanilla)",          category: "Dairy",           gi: 57, carbP100: 23.0, fiberP100: 0.0, proteinP100: 3.5,  fatP100: 11.0, portions: [{ label: "½ cup", g: 66 }, { label: "1 cup", g: 132 }] },
-  { id: 288, name: "Yogurt (fruit, lowfat)",       category: "Dairy",           gi: 33, carbP100: 17.0, fiberP100: 0.0, proteinP100: 5.0,  fatP100: 1.0,  portions: [{ label: "½ cup", g: 113 }, { label: "1 cup", g: 227 }] },
-  { id: 289, name: "Chocolate milk (lowfat)",      category: "Dairy",           gi: 34, carbP100: 11.0, fiberP100: 0.5, proteinP100: 3.4,  fatP100: 1.5,  portions: [{ label: "½ cup", g: 122 }, { label: "1 cup", g: 244 }] },
-  { id: 290, name: "Whipped cream",                category: "Dairy",           gi: 0,  carbP100: 3.1,  fiberP100: 0.0, proteinP100: 1.7,  fatP100: 23.0, portions: [{ label: "2 tbsp", g: 15 }, { label: "¼ cup", g: 30 }] },
 
   // Grains additions
-  { id: 291, name: "Rye bread",                    category: "Grains",          gi: 58, carbP100: 48.0, fiberP100: 5.8, proteinP100: 8.5,  fatP100: 3.3,  portions: [{ label: "1 slice", g: 32 }, { label: "2 slices", g: 64 }] },
   { id: 292, name: "English muffin (whole wheat)", category: "Grains",          gi: 45, carbP100: 36.0, fiberP100: 4.4, proteinP100: 7.5,  fatP100: 1.5,  portions: [{ label: "1 muffin", g: 57 }] },
   { id: 293, name: "Pita bread (white)",           category: "Grains",          gi: 57, carbP100: 55.0, fiberP100: 2.2, proteinP100: 9.0,  fatP100: 1.7,  portions: [{ label: "½ pita (4in)", g: 28 }, { label: "1 pita (6in)", g: 60 }] },
   { id: 294, name: "Rice noodles (cooked)",        category: "Grains",          gi: 61, carbP100: 22.0, fiberP100: 1.8, proteinP100: 1.8,  fatP100: 0.2,  portions: [{ label: "½ cup", g: 88 }, { label: "1 cup", g: 176 }] },
   { id: 295, name: "Soba noodles (cooked)",        category: "Grains",          gi: 46, carbP100: 21.0, fiberP100: 2.0, proteinP100: 5.1,  fatP100: 0.1,  portions: [{ label: "½ cup", g: 85 }, { label: "1 cup", g: 170 }] },
 
   // Vegetable additions
-  { id: 296, name: "Artichoke (cooked)",           category: "Vegetables",      gi: 15, carbP100: 10.5, fiberP100: 5.4, proteinP100: 2.9,  fatP100: 0.2,  portions: [{ label: "1 medium", g: 120 }, { label: "½ cup hearts", g: 84 }] },
-  { id: 297, name: "Brussels sprouts (cooked)",    category: "Vegetables",      gi: 15, carbP100: 9.0,  fiberP100: 3.8, proteinP100: 2.5,  fatP100: 0.5,  portions: [{ label: "½ cup", g: 78 }, { label: "1 cup", g: 156 }] },
   { id: 298, name: "Cabbage (raw)",                category: "Vegetables",      gi: 10, carbP100: 5.8,  fiberP100: 2.5, proteinP100: 1.3,  fatP100: 0.1,  portions: [{ label: "1 cup shredded", g: 89 }, { label: "2 cups", g: 178 }] },
-  { id: 299, name: "Eggplant (cooked)",            category: "Vegetables",      gi: 15, carbP100: 5.7,  fiberP100: 2.5, proteinP100: 0.8,  fatP100: 0.2,  portions: [{ label: "½ cup diced", g: 50 }, { label: "1 cup", g: 99 }] },
-  { id: 300, name: "Mushrooms (cooked)",           category: "Vegetables",      gi: 10, carbP100: 4.4,  fiberP100: 1.4, proteinP100: 3.6,  fatP100: 0.4,  portions: [{ label: "½ cup", g: 78 }, { label: "1 cup", g: 156 }] },
 
 
 //Supplements
