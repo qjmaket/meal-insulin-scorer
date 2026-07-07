@@ -388,6 +388,14 @@ export const FOOD_DB = [
 { id: 312, name: "Chick-fil-A Egg Biscuit, 2 egg (estimated GI)", category: "Grains",
   gi: 70, carbP100: 20.4, fiberP100: 1.1, proteinP100: 7.7, fatP100: 13.3,
   portions: [{ label: "1 biscuit", g: 181 }] },
+
+// Macros and weight (893g) both confirmed directly from Chick-fil-A's official site.
+// Only the GI value below remains an estimate — sweetened tea isn't lab-tested for GI;
+// treated as comparable to a sugar-sweetened soda (~60-65 range), not sourced.
+
+{ id: 313, name: "Chick-fil-A Sweetened Iced Tea, Large (estimated GI)", category: "Beverages",
+  gi: 65, carbP100: 4.9, fiberP100: 0.0, proteinP100: 0.0, fatP100: 0.0,
+  portions: [{ label: "1 large (32 oz)", g: 893 }] },
 ];
 
 export const CATEGORIES = [...new Set(FOOD_DB.map(f => f.category))];
