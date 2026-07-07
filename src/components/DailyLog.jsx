@@ -518,7 +518,12 @@ export default function DailyLog({ profile, targets: propTargets, user, onNaviga
     : avgScore < 10 ? '#00C9A7' : avgScore <= 20 ? '#F5A623' : '#E84545';
 
   const tabBtn = (id, label) => (
-    <button onClick={() => setActiveTab(id)} style={{
+    <button onClick={() => {
+      setActiveTab(id);
+      // Re-fetch fasting window whenever user opens the Fasting tab,
+      // so meals logged from MealScorer are reflected immediately.
+      if (id === 'fasting') setRefreshKey(k => k + 1);
+    }} style={{
       flex: 1, background: 'none', border: 'none',
       borderBottom: activeTab === id ? '2px solid #00C9A7' : '2px solid transparent',
       color: activeTab === id ? '#F0EDE6' : '#5a7a96',
