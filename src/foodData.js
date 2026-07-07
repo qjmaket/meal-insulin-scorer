@@ -373,6 +373,21 @@ export const FOOD_DB = [
     { label: "Small serving", g: 85 },
     { label: "Large serving", g: 170 },
   ] },
+
+// Buttery Biscuit — official Chick-fil-A item, weight independently confirmed at 81g
+{ id: 310, name: "Chick-fil-A Buttery Biscuit (estimated GI)", category: "Grains",
+  gi: 72, carbP100: 45.7, fiberP100: 2.5, proteinP100: 4.9, fatP100: 18.5,
+  portions: [{ label: "1 biscuit", g: 81 }] },
+
+// Weight = verified 81g biscuit + 1 USDA large egg (50g). Macros as given, high confidence.
+{ id: 311, name: "Chick-fil-A Egg Biscuit, 1 egg (estimated GI)", category: "Grains",
+  gi: 70, carbP100: 28.2, fiberP100: 1.5, proteinP100: 6.9, fatP100: 14.9,
+  portions: [{ label: "1 biscuit", g: 131 }] },
+
+// Weight = verified 81g biscuit + 2 USDA large eggs (100g).
+{ id: 312, name: "Chick-fil-A Egg Biscuit, 2 egg (estimated GI)", category: "Grains",
+  gi: 70, carbP100: 20.4, fiberP100: 1.1, proteinP100: 7.7, fatP100: 13.3,
+  portions: [{ label: "1 biscuit", g: 181 }] },
 ];
 
 export const CATEGORIES = [...new Set(FOOD_DB.map(f => f.category))];
