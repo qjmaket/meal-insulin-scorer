@@ -436,10 +436,16 @@ function SupabaseHydrationCounter({ userId }) {
 
 // ── Main DailyLog screen ─────────────────────────────────
 
-export default function DailyLog({ profile, targets: propTargets, user, onNavigate }) {
+export default function DailyLog({ profile, targets: propTargets, user, onNavigate, initialTab, onInitialTabConsumed }) {
   const [log, setLog]             = useState([]);
   const [loading, setLoading]     = useState(true);
-  const [activeTab, setActiveTab] = useState('log');
+  const [activeTab, setActiveTab] = useState(initialTab || 'log');
+
+  // Clear initialTab in App.jsx after consuming it so repeat visits
+  // don't keep forcing the same tab
+  useEffect(() => {
+    if (initialTab) onInitialTabConsumed?.();
+  }, []);
   const [toast, setToast]         = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
 

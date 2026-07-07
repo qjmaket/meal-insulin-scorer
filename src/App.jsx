@@ -15,8 +15,8 @@ export default function App() {
   const [profile, setProfile]       = useState(null);
   const [targets, setTargets]       = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
-  // Preset meal to load into MealScorer from Quick Log or Dashboard
   const [preloadMeal, setPreloadMeal] = useState(null);
+  const [initialTab, setInitialTab]   = useState(null);
 
   useEffect(() => {
     getSession().then(({ session }) => {
@@ -74,16 +74,30 @@ export default function App() {
   };
 
   /**
-   * Navigate to a screen, optionally pre-loading a meal into MealScorer.
+   * Navigate to a screen with optional context.
    * @param {string} id - screen name
-   * @param {Object} [meal] - optional meal to preload { name, items }
+   * @param {Object} [options]
+   * @param {Object} [options.meal]  - meal to preload into MealScorer
+   * @param {string} [options.tab]   - initial tab to open in DailyLog
+   *
+   * Legacy call pattern handleNav('scorer', mealObject) is also supported
+   * for backward compatibility with existing Quick Log callers.
    */
-  const handleNav = (id, meal = null) => {
-    if (meal) setPreloadMeal(meal);
+  const handleNav = (id, options = null) => {
+    // Support legacy call pattern: handleNav('scorer', mealObject)
+    if (options && !options.meal && !options.tab && options.items) {
+      // options is actually a raw meal object — legacy pattern
+      setPreloadMeal(options);
+      setInitialTab(null);
+    } else {
+      setPreloadMeal(options?.meal || null);
+      setInitialTab(options?.tab || null);
+    }
     setScreen(id);
   };
 
   const handleMealPreloadConsumed = () => setPreloadMeal(null);
+  const handleInitialTabConsumed = () => setInitialTab(null);
 
   if (authLoading) {
     return (
@@ -112,7 +126,11 @@ export default function App() {
                  profile={profile} targets={targets} user={user} onNavigate={handleNav}
                  preloadMeal={preloadMeal} onPreloadConsumed={handleMealPreloadConsumed}
                />,
-    log:       <DailyLog profile={profile} targets={targets} user={user} onNavigate={handleNav} />,
+    log:       <DailyLog
+                 profile={profile} targets={targets} user={user}
+                 onNavigate={handleNav} initialTab={initialTab}
+                 onInitialTabConsumed={handleInitialTabConsumed}
+               />,
     profile:   <Profile profile={profile} user={user} onSave={handleProfileSave} />,
   };
 
