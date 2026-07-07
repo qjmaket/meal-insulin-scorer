@@ -396,6 +396,19 @@ export const FOOD_DB = [
 { id: 313, name: "Chick-fil-A Sweetened Iced Tea, Large (estimated GI)", category: "Beverages",
   gi: 65, carbP100: 4.9, fiberP100: 0.0, proteinP100: 0.0, fatP100: 0.0,
   portions: [{ label: "1 large (32 oz)", g: 893 }] },
+
+// Macros: per-100g values derived from USDA FoodData Central general apple data,
+// consistent across multiple sources. Honeycrisp-specific USDA FDC entry not directly
+// confirmed this session — treat macros at ~80% confidence, not primary-source verified.
+// GI: 38, pooled mean from Atkinson et al. 2021 International GI Tables (raw apples),
+// recalled from prior session — ~85% confidence. Perplexity's "36" cited a secondary
+// aggregator, not a primary source; 38 is traceable to peer-reviewed pooled data.
+// Fiber: Perplexity's 5g/serving implies 2.7g/100g; USDA general apple data suggests
+// 2.4g/100g. I used 2.4 — closer to what the primary source supports.
+
+{ id: 314, name: "Honeycrisp Apple", category: "Fruits",
+  gi: 38, carbP100: 13.8, fiberP100: 2.4, proteinP100: 0.3, fatP100: 0.1,
+  portions: [{ label: "1 medium (with skin)", g: 182 }] },
 ];
 
 export const CATEGORIES = [...new Set(FOOD_DB.map(f => f.category))];
