@@ -332,6 +332,24 @@ export default function Dashboard({ profile, targets, user, onNavigate }) {
     return () => clearInterval(t);
   }, []);
 
+  // ── Body-comp logging nudge ──────────────────────────────
+  // Correlating insulin scores against body composition (Phase 3 of the app roadmap)
+  // requires body_stats_log entries to actually accumulate. Deferred logging is
+  // permanently lost history, not delayed history, so this nudges rather than waits.
+  // Trigger: Saturday (existing Active Recovery day, most likely near a ZOZOFIT scan)
+  // once at least a day has passed since the last entry, OR any day past 7 days
+  // as a fallback in case a Saturday gets missed.
+  const todayDow = new Date(now).getDay(); // 0=Sun ... 6=Sat
+  const isSaturday = todayDow === 6;
+  const sortedBodyStats = [...bodyStats].sort((a, b) => new Date(b.log_date) - new Date(a.log_date));
+  const lastBodyEntry = sortedBodyStats[0] || null;
+  const daysSinceBodyLog = lastBodyEntry
+    ? Math.floor((new Date(today) - new Date(lastBodyEntry.log_date)) / 86400000)
+    : null;
+  const showBodyNudge = bodyStats.length > 0 && daysSinceBodyLog !== null && (
+    daysSinceBodyLog >= 7 || (isSaturday && daysSinceBodyLog >= 1)
+  );
+
   const loadData = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
@@ -500,7 +518,21 @@ export default function Dashboard({ profile, targets, user, onNavigate }) {
           )}
 
           {/* Body composition */}
-          <div className="card">
+          <div className="card" style={showBodyNudge ? { border: '1px solid #F5A623' } : undefined}>
+            {showBodyNudge && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                background: '#2a2010', borderRadius: 6,
+                padding: '8px 10px', marginBottom: 12, fontSize: 12, color: '#F5A623',
+              }}>
+                <span>📅</span>
+                <span>
+                  {daysSinceBodyLog} days since your last scan
+                  {isSaturday ? " — today's Active Recovery, a good time to log one" : ' — worth catching up on'}
+                  , before more history is lost.
+                </span>
+              </div>
+            )}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
               <div className="label-sm">Body composition</div>
               <button
