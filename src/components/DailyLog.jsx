@@ -8,7 +8,7 @@ import {
   getHydration, upsertHydration,
   getFastingWindow, upsertFastingWindow,
   getSavedMeals, deleteSavedMeal, updateSavedMealName,
-  getRecentMealLogs, updateFastingWindowFromMeal,
+  getRecentMealLogs, updateFastingWindowFromMeal, closeEatingWindow,
 } from '../lib/db';
 import { MEAL_FLAGS, getFlagByValue } from '../utils/dailyLog';
 import { todayKey, formatTime } from '../utils/storage';
@@ -446,8 +446,10 @@ export default function DailyLog({ profile, targets: propTargets, user, onNaviga
   useEffect(() => {
     if (initialTab) onInitialTabConsumed?.();
   }, []);
-  const [toast, setToast]         = useState(null);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [toast, setToast]           = useState(null);
+  const [refreshKey, setRefreshKey]   = useState(0);
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const [closing, setClosing]         = useState(false);
 
   const today = todayKey();
   const userId = user?.id;
@@ -517,6 +519,15 @@ export default function DailyLog({ profile, targets: propTargets, user, onNaviga
     showToast('✓ Meal logged');
   };
 
+  const handleCloseWindow = async (confirmedTime) => {
+    setClosing(true);
+    await closeEatingWindow(userId, today, confirmedTime);
+    setClosing(false);
+    setShowCloseConfirm(false);
+    setRefreshKey(k => k + 1);
+    showToast('■ Eating window closed — fasting clock started');
+  };
+
   const totals = calcDailyTotals(log);
   const totalCals = Math.round((totals.protein * 4) + (totals.carbs * 4) + (totals.fat * 9));
   const avgScore  = totals.mealCount > 0 ? totals.netScore / totals.mealCount : null;
@@ -539,8 +550,44 @@ export default function DailyLog({ profile, targets: propTargets, user, onNaviga
     }}>{label}</button>
   );
 
+  const CloseWindowModal = () => {
+    const now = new Date();
+    const defaultTime = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    const [closeTime, setCloseTime] = useState(defaultTime);
+    const confirm = () => {
+      const [h, m] = closeTime.split(':').map(Number);
+      const d = new Date(); d.setHours(h, m, 0, 0);
+      handleCloseWindow(d.toISOString());
+    };
+    return (
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(0,0,0,0.7)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+      }} onClick={e => e.target === e.currentTarget && setShowCloseConfirm(false)}>
+        <div style={{ background: '#0F1923', border: '1px solid #1e2d3d', borderRadius: 12, padding: 24, width: '100%', maxWidth: 360 }}>
+          <div style={{ fontSize: 16, fontWeight: 600, color: '#F0EDE6', marginBottom: 8 }}>Close eating window?</div>
+          <div style={{ fontSize: 13, color: '#5a7a96', marginBottom: 20, lineHeight: 1.5 }}>
+            This will start your fasting clock. Set the time your last meal ended.
+          </div>
+          <div style={{ marginBottom: 20 }}>
+            <div className="label-sm" style={{ marginBottom: 6 }}>Window close time</div>
+            <input type="time" value={closeTime} onChange={e => setCloseTime(e.target.value)}
+              style={{ background: '#1a2d3d', border: '1px solid #1e3a52', borderRadius: 6, color: '#F0EDE6', padding: '10px 14px', fontSize: 14, fontFamily: 'inherit', width: '100%' }} />
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={() => setShowCloseConfirm(false)} style={{ flex: 1, background: 'none', border: '1px solid #1e3a52', borderRadius: 6, color: '#5a7a96', padding: '10px', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+            <button onClick={confirm} disabled={closing} style={{ flex: 1, background: '#E84545', border: 'none', borderRadius: 6, color: '#fff', padding: '10px', fontSize: 13, fontWeight: 600, cursor: closing ? 'default' : 'pointer', fontFamily: 'inherit', opacity: closing ? 0.7 : 1 }}>
+              {closing ? 'Closing…' : '■ Close window'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="screen">
+      {showCloseConfirm && <CloseWindowModal />}
       {toast && (
         <div style={{
           position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)',
@@ -618,6 +665,17 @@ export default function DailyLog({ profile, targets: propTargets, user, onNaviga
             userId={userId}
             onRefresh={refresh}
           />
+          <button
+            onClick={() => setShowCloseConfirm(true)}
+            style={{
+              background: 'none', border: '1px solid #E84545',
+              borderRadius: 6, color: '#E84545', padding: '12px',
+              fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              fontFamily: 'inherit', width: '100%',
+            }}
+          >
+            ■ Close eating window
+          </button>
           <SupabaseHydrationCounter userId={userId} />
         </div>
       )}

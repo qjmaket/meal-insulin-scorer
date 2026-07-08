@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   getDashboardLogs, getBodyStats, upsertBodyStats,
-  deleteBodyStats, getFastingWindow, getHydration,
+  deleteBodyStats, getFastingWindow, getHydration, closeEatingWindow,
 } from '../lib/db';
 import { generateInsights } from '../utils/insights';
 import { todayKey, formatDuration } from '../utils/storage';
@@ -320,8 +320,10 @@ export default function Dashboard({ profile, targets, user, onNavigate }) {
   const [todayHydration, setTodayHydration] = useState(0);
   const [insights, setInsights]       = useState([]);
   const [loading, setLoading]         = useState(true);
-  const [showBodyForm, setShowBodyForm] = useState(false);
-  const [now, setNow]                 = useState(Date.now());
+  const [showBodyForm, setShowBodyForm]   = useState(false);
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const [closing, setClosing]             = useState(false);
+  const [now, setNow]                     = useState(Date.now());
 
   const userId = user?.id;
   const today  = todayKey();
@@ -331,6 +333,15 @@ export default function Dashboard({ profile, targets, user, onNavigate }) {
     const t = setInterval(() => setNow(Date.now()), 60000);
     return () => clearInterval(t);
   }, []);
+
+  const handleCloseWindow = async (confirmedTime) => {
+    setClosing(true);
+    const date = new Date().toISOString().split('T')[0];
+    await closeEatingWindow(userId, date, confirmedTime);
+    setClosing(false);
+    setShowCloseConfirm(false);
+    loadData(); // refresh fasting status on dashboard
+  };
 
   const loadData = useCallback(async () => {
     if (!userId) return;
@@ -385,8 +396,42 @@ export default function Dashboard({ profile, targets, user, onNavigate }) {
   const scoreColor  = todayScore === null || todayScore === undefined ? '#5a7a96'
     : todayScore < 10 ? '#00C9A7' : todayScore <= 20 ? '#F5A623' : '#E84545';
 
+  const CloseWindowModal = () => {
+    const now2 = new Date();
+    const defaultTime = `${String(now2.getHours()).padStart(2,'0')}:${String(now2.getMinutes()).padStart(2,'0')}`;
+    const [closeTime, setCloseTime] = useState(defaultTime);
+    const confirm = () => {
+      const [h, m] = closeTime.split(':').map(Number);
+      const d = new Date(); d.setHours(h, m, 0, 0);
+      handleCloseWindow(d.toISOString());
+    };
+    return (
+      <div style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+        onClick={e => e.target === e.currentTarget && setShowCloseConfirm(false)}>
+        <div style={{ background: '#0F1923', border: '1px solid #1e2d3d', borderRadius: 12, padding: 24, width: '100%', maxWidth: 360 }}>
+          <div style={{ fontSize: 16, fontWeight: 600, color: '#F0EDE6', marginBottom: 8 }}>Close eating window?</div>
+          <div style={{ fontSize: 13, color: '#5a7a96', marginBottom: 20, lineHeight: 1.5 }}>
+            This will start your fasting clock. Set the time your last meal ended.
+          </div>
+          <div style={{ marginBottom: 20 }}>
+            <div className="label-sm" style={{ marginBottom: 6 }}>Window close time</div>
+            <input type="time" value={closeTime} onChange={e => setCloseTime(e.target.value)}
+              style={{ background: '#1a2d3d', border: '1px solid #1e3a52', borderRadius: 6, color: '#F0EDE6', padding: '10px 14px', fontSize: 14, fontFamily: 'inherit', width: '100%' }} />
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={() => setShowCloseConfirm(false)} style={{ flex: 1, background: 'none', border: '1px solid #1e3a52', borderRadius: 6, color: '#5a7a96', padding: '10px', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+            <button onClick={confirm} disabled={closing} style={{ flex: 1, background: '#E84545', border: 'none', borderRadius: 6, color: '#fff', padding: '10px', fontSize: 13, fontWeight: 600, cursor: closing ? 'default' : 'pointer', fontFamily: 'inherit', opacity: closing ? 0.7 : 1 }}>
+              {closing ? 'Closing…' : '■ Close window'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="screen">
+      {showCloseConfirm && <CloseWindowModal />}
       {showBodyForm && (
         <BodyCompForm
           userId={userId}
@@ -446,26 +491,39 @@ export default function Dashboard({ profile, targets, user, onNavigate }) {
                   </div>
                 )}
               </div>
-              <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={() => onNavigate('scorer')}
+                    style={{
+                      background: '#00C9A7', border: 'none', borderRadius: 6,
+                      color: '#0F1923', fontSize: 12, fontWeight: 600,
+                      padding: '8px 14px', cursor: 'pointer', fontFamily: 'inherit',
+                    }}
+                  >
+                    New meal
+                  </button>
+                  <button
+                    onClick={() => onNavigate('log', { tab: 'quick' })}
+                    style={{
+                      background: 'none', border: '1px solid #1e3a52', borderRadius: 6,
+                      color: '#F0EDE6', fontSize: 12, fontWeight: 500,
+                      padding: '8px 14px', cursor: 'pointer', fontFamily: 'inherit',
+                    }}
+                  >
+                    Quick log
+                  </button>
+                </div>
                 <button
-                  onClick={() => onNavigate('scorer')}
+                  onClick={() => setShowCloseConfirm(true)}
                   style={{
-                    background: '#00C9A7', border: 'none', borderRadius: 6,
-                    color: '#0F1923', fontSize: 12, fontWeight: 600,
-                    padding: '8px 14px', cursor: 'pointer', fontFamily: 'inherit',
+                    background: 'none', border: '1px solid #E84545', borderRadius: 6,
+                    color: '#E84545', fontSize: 11, fontWeight: 600,
+                    padding: '6px 10px', cursor: 'pointer', fontFamily: 'inherit',
+                    whiteSpace: 'nowrap',
                   }}
                 >
-                  New meal
-                </button>
-                <button
-                  onClick={() => onNavigate('log', { tab: 'quick' })}
-                  style={{
-                    background: 'none', border: '1px solid #1e3a52', borderRadius: 6,
-                    color: '#F0EDE6', fontSize: 12, fontWeight: 500,
-                    padding: '8px 14px', cursor: 'pointer', fontFamily: 'inherit',
-                  }}
-                >
-                  Quick log
+                  ■ Close window
                 </button>
               </div>
             </div>

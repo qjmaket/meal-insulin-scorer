@@ -449,3 +449,18 @@ export async function updateSavedMealName(userId, id, name) {
     .eq('user_id', userId);
   return { error };
 }
+
+// ── Close eating window ───────────────────────────────────
+
+/**
+ * Manually close the eating window for a date.
+ * Sets window_close to the provided timestamp.
+ * This starts the fasting clock.
+ */
+export async function closeEatingWindow(userId, date, timestamp) {
+  const ts = timestamp || new Date().toISOString();
+  return upsertFastingWindow(userId, date, {
+    window_close: ts,
+    manual_window_close: true,
+  });
+}
