@@ -409,6 +409,21 @@ export const FOOD_DB = [
 { id: 314, name: "Honeycrisp Apple", category: "Fruits",
   gi: 38, carbP100: 13.8, fiberP100: 2.4, proteinP100: 0.3, fatP100: 0.1,
   portions: [{ label: "1 medium (with skin)", g: 182 }] },
+
+// Homemade Beef Chili — recipe: 1lb 80/20 ground beef (cooked/drained),
+// 1 can (16oz) dark red kidney beans (drained), 1 can (16oz) plain tomato sauce,
+// chili seasoning blend. Serves 4 (~265g/serving).
+// GI: weighted average by carb contribution (kidney beans GI 24 per Atkinson 2021,
+// tomato sauce GI 31 per USDA FoodStruct). Macros USDA-sourced this session.
+// Adjust serving portion below to match your actual bowl size.
+
+{ id: 315, name: "Homemade Beef & Bean Chili (1 bowl, ~265g)", category: "Protein",
+  gi: 26, carbP100: 7.7, fiberP100: 2.2, proteinP100: 10.8, fatP100: 6.2,
+  portions: [
+    { label: "1 bowl / 4-serving recipe", g: 265 },
+    { label: "1 bowl / 6-serving recipe", g: 176 },
+    { label: "Large bowl (2 cups)", g: 480 },
+  ] },
 ];
 
 export const CATEGORIES = [...new Set(FOOD_DB.map(f => f.category))];
