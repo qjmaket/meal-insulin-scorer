@@ -11,6 +11,7 @@
 
 import { supabase } from './supabase';
 import { getMealScore } from '../foodData';
+import { localDateKey } from '../utils/storage';
 
 // ── Profile ──────────────────────────────────────────────
 
@@ -69,8 +70,8 @@ export async function getMealLogs(userId, date) {
  */
 export async function insertMealLog(userId, meal) {
   const date = meal.timestamp
-    ? new Date(meal.timestamp).toISOString().split('T')[0]
-    : new Date().toISOString().split('T')[0];
+    ? localDateKey(new Date(meal.timestamp))
+    : localDateKey();
 
   const score = getMealScore(meal.items);
 
@@ -146,7 +147,7 @@ export async function deleteMealLog(userId, entryId) {
 export async function getRecentMealLogs(userId, days = 7) {
   const since = new Date();
   since.setDate(since.getDate() - days);
-  const sinceStr = since.toISOString().split('T')[0];
+  const sinceStr = localDateKey(since);
 
   const { data, error } = await supabase
     .from('meal_logs')
@@ -366,7 +367,7 @@ export async function upsertBodyStats(userId, entry) {
     .from('body_stats_log')
     .upsert({
       user_id:      userId,
-      log_date:     entry.log_date || new Date().toISOString().split('T')[0],
+      log_date:     entry.log_date || localDateKey(),
       weight_lbs:   entry.weight_lbs   || null,
       body_fat_pct: entry.body_fat_pct || null,
       waist_in:     entry.waist_in     || null,
@@ -400,7 +401,7 @@ export async function deleteBodyStats(userId, id) {
 export async function getDashboardLogs(userId, days = 7) {
   const since = new Date();
   since.setDate(since.getDate() - days + 1);
-  const sinceStr = since.toISOString().split('T')[0];
+  const sinceStr = localDateKey(since);
 
   const { data, error } = await supabase
     .from('meal_logs')
@@ -416,7 +417,7 @@ export async function getDashboardLogs(userId, days = 7) {
   for (let i = 0; i < days; i++) {
     const d = new Date();
     d.setDate(d.getDate() - days + 1 + i);
-    const key = d.toISOString().split('T')[0];
+    const key = localDateKey(d);
     byDate[key] = { date: key, logs: [], avgScore: null, totals: null };
   }
 

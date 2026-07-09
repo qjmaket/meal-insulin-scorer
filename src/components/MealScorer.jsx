@@ -5,6 +5,7 @@ import ScorePanel from './ScorePanel';
 import MealFlag from './MealFlag';
 import { getMealScore, FOOD_DB } from '../foodData';
 import { insertMealLog, insertSavedMeal, updateFastingWindowFromMeal, closeEatingWindow } from '../lib/db';
+import { localDateKey } from '../utils/storage';
 
 const PRESET_MEALS = [
   {
@@ -166,7 +167,7 @@ export default function MealScorer({ profile, targets, user, onNavigate, preload
   const handleCloseWindow = async (confirmedTime) => {
     if (!user?.id) return;
     setClosing(true);
-    const date = new Date().toISOString().split('T')[0];
+    const date = localDateKey();
     await closeEatingWindow(user.id, date, confirmedTime);
     setClosing(false);
     setShowCloseConfirm(false);

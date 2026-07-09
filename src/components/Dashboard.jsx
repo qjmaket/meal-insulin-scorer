@@ -336,7 +336,7 @@ export default function Dashboard({ profile, targets, user, onNavigate }) {
 
   const handleCloseWindow = async (confirmedTime) => {
     setClosing(true);
-    const date = new Date().toISOString().split('T')[0];
+    const date = todayKey();
     await closeEatingWindow(userId, date, confirmedTime);
     setClosing(false);
     setShowCloseConfirm(false);
