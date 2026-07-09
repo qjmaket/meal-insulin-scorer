@@ -72,12 +72,8 @@ export function storageDel(key, userId) {
 }
 
 /**
- * Build a YYYY-MM-DD key from a Date object using LOCAL time
- * components (getFullYear/getMonth/getDate), not UTC.
- * This is the single source of truth for "what day is it" —
- * every other date-key helper and every call site across the
- * app should route through this function so the day boundary
- * always matches the device's local midnight, not UTC midnight.
+ * Get today's date string in YYYY-MM-DD format
+ * Used as the daily log key
  */
 export function localDateKey(d = new Date()) {
   const y = d.getFullYear();
@@ -86,16 +82,12 @@ export function localDateKey(d = new Date()) {
   return `${y}-${m}-${day}`;
 }
 
-/**
- * Get today's date string in YYYY-MM-DD format (local time)
- * Used as the daily log key
- */
 export function todayKey() {
   return localDateKey(new Date());
 }
 
 /**
- * Get a date string N days ago (local time)
+ * Get a date string N days ago
  */
 export function daysAgoKey(n) {
   const d = new Date();
