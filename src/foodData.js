@@ -429,7 +429,7 @@ export const FOOD_DB = [
 
 { id: 317, name: "Publix French Hamburger Rolls", category: "Grains", gi: 73, carbP100: 50.8, fiberP100: 1.6, proteinP100: 9.5, fatP100: 2.4, portions: [{ label: "1 roll", g: 63 }] },
 
-{ id: 318, name: "Heinz Original BBQ Sauce (estimated GI)", category: "Snacks & Sweets", gi: 60, carbP100: 68.0, fiberP100: 0.0, proteinP100: 0.0, fatP100: 0.0, portions: [{ label: "2 tbsp", g: 36 }, { label: "1 tbsp", g: 18 }] },
+{ id: 318, name: "Heinz Original BBQ Sauce (estimated GI)", category: "Snacks & Sweets", gi: 60, carbP100: 68.0, fiberP100: 0.0, proteinP100: 0.0, fatP100: 0.0, portions: [{ label: "1 tbsp", g: 18 }, { label: "2 tbsp", g: 36 }, { label: "1 oz cup", g: 30 }] },
 ];
 
 export const CATEGORIES = [...new Set(FOOD_DB.map(f => f.category))];
