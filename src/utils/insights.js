@@ -14,7 +14,8 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
  * Get day name from a YYYY-MM-DD date string
  */
 function dayName(dateStr) {
-  return DAYS[new Date(dateStr).getDay()];
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return DAYS[new Date(y, m - 1, d).getDay()];
 }
 
 /**

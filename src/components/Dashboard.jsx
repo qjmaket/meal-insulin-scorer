@@ -26,7 +26,11 @@ function ScoreBarChart({ weekData }) {
             : score < 10 ? '#00C9A7'
             : score <= 20 ? '#F5A623'
             : '#E84545';
-          const date = new Date(day.date);
+          // Parse "YYYY-MM-DD" as LOCAL date components — new Date(str) would
+          // parse it as UTC midnight, then getDay() could roll it back a
+          // calendar day depending on the user's timezone offset.
+          const [y, m, d] = day.date.split('-').map(Number);
+          const date = new Date(y, m - 1, d);
           const isToday = day.date === todayKey();
 
           return (
@@ -54,8 +58,11 @@ function ScoreBarChart({ weekData }) {
                 fontSize: 10,
                 color: isToday ? '#00C9A7' : '#5a7a96',
                 fontWeight: isToday ? 600 : 400,
+                lineHeight: 1.3,
+                textAlign: 'center',
               }}>
-                {DAYS_SHORT[date.getDay()]}
+                <div>{DAYS_SHORT[date.getDay()]}</div>
+                <div style={{ fontSize: 9, opacity: 0.75 }}>{date.getDate()}</div>
               </div>
             </div>
           );
