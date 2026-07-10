@@ -428,6 +428,8 @@ export const FOOD_DB = [
 { id: 316, name: "Publix Deli Fried Chicken Tenders (estimated GI)", category: "Protein", gi: 52, carbP100: 13.2, fiberP100: 1.3, proteinP100: 24.7, fatP100: 10.8, portions: [{ label: "4 chicken tenders", g: 454 }] },
 
 { id: 317, name: "Publix French Hamburger Rolls", category: "Grains", gi: 73, carbP100: 50.8, fiberP100: 1.6, proteinP100: 9.5, fatP100: 2.4, portions: [{ label: "1 roll", g: 63 }] },
+
+{ id: 318, name: "Heinz Original BBQ Sauce (estimated GI)", category: "Snacks & Sweets", gi: 60, carbP100: 68.0, fiberP100: 0.0, proteinP100: 0.0, fatP100: 0.0, portions: [{ label: "2 tbsp", g: 36 }, { label: "1 tbsp", g: 18 }] },
 ];
 
 export const CATEGORIES = [...new Set(FOOD_DB.map(f => f.category))];
