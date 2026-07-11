@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { searchFoods, calcGL, calcFiber, calcCarbs, calcProtein, calcFat } from '../foodData';
 import { searchOpenFoodFacts } from '../utils/openFoodFacts';
 
@@ -20,6 +20,16 @@ export default function MealItem({ item, idx, onRemove, onChangePortion, onChang
   // quantity defaults to 1 if not set
   const quantity = item.quantity ?? 1;
   const effectiveGrams = item.grams * quantity;
+
+  // The input's displayed text is kept separate from the committed
+  // numeric quantity. Without this, deleting "1" to type ".5" would
+  // pass through an empty string, which used to immediately snap the
+  // field back to "1" before a decimal point could be typed.
+  const [qtyText, setQtyText] = useState(String(quantity));
+
+  useEffect(() => {
+    setQtyText(String(quantity));
+  }, [item.quantity]);
 
   const gl      = item.food.gi !== null && item.food.gi !== undefined
     ? calcGL(item.food, effectiveGrams) : null;
@@ -59,12 +69,23 @@ export default function MealItem({ item, idx, onRemove, onChangePortion, onChang
     )).slice(0, 3),
   ];
 
-  const handleQuantityChange = (val) => {
+  const handleQuantityInput = (val) => {
+    // Always let the user type freely — including '', '.', '0.', etc. —
+    // without forcing the field back to a committed value mid-edit.
+    setQtyText(val);
     const num = parseFloat(val);
     if (!isNaN(num) && num > 0) {
       onChangeQuantity(idx, num);
-    } else if (val === '' || val === '0') {
+    }
+  };
+
+  const handleQuantityBlur = () => {
+    const num = parseFloat(qtyText);
+    if (isNaN(num) || num <= 0) {
+      setQtyText('1');
       onChangeQuantity(idx, 1);
+    } else {
+      setQtyText(String(num));
     }
   };
 
@@ -118,11 +139,12 @@ export default function MealItem({ item, idx, onRemove, onChangePortion, onChang
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <span style={{ fontSize: 11, color: '#5a7a96' }}>×</span>
               <input
-                type="number"
-                min="0.25"
-                step="0.25"
-                value={quantity}
-                onChange={e => handleQuantityChange(e.target.value)}
+                type="text"
+                inputMode="decimal"
+                pattern="[0-9]*\.?[0-9]*"
+                value={qtyText}
+                onChange={e => handleQuantityInput(e.target.value)}
+                onBlur={handleQuantityBlur}
                 style={{
                   background: '#1a2d3d',
                   border: '1px solid #1e3a52',
@@ -134,7 +156,7 @@ export default function MealItem({ item, idx, onRemove, onChangePortion, onChang
                   fontFamily: 'inherit',
                   textAlign: 'center',
                 }}
-                title="Quantity multiplier — e.g. enter 4 for 4 eggs"
+                title="Quantity multiplier — e.g. enter 4 for 4 eggs, or .5 for half"
               />
               <span style={{ fontSize: 10, color: '#3a5a76' }}>qty</span>
             </div>

@@ -11,7 +11,7 @@ import {
   getRecentMealLogs, updateFastingWindowFromMeal, closeEatingWindow,
 } from '../lib/db';
 import { MEAL_FLAGS, getFlagByValue } from '../utils/dailyLog';
-import { todayKey, formatTime } from '../utils/storage';
+import { todayKey, formatTime, localDateKey } from '../utils/storage';
 import { getMealScore } from '../foodData';
 
 // ── Shared sub-components ────────────────────────────────
@@ -513,7 +513,7 @@ export default function DailyLog({ profile, targets: propTargets, user, onNaviga
     });
     if (error) { showToast('Failed to log meal.', '#E84545'); return; }
     // Update fasting window — skipped if fastingSafe
-    const date = ts.split('T')[0];
+    const date = localDateKey(new Date(ts));
     await updateFastingWindowFromMeal(userId, date, ts, meal.fastingSafe || false);
     refresh();
     showToast('✓ Meal logged');

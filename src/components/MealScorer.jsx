@@ -155,7 +155,7 @@ export default function MealScorer({ profile, targets, user, onNavigate, preload
       showToast('Failed to log meal. Try again.', '#E84545');
     } else {
       // Update fasting window — skipped automatically if fastingSafe is true
-      const date = ts.split('T')[0];
+      const date = localDateKey(new Date(ts));
       await updateFastingWindowFromMeal(user.id, date, ts, fastingSafe);
       showToast(fastingSafe ? '✓ Logged — fast window preserved' : '✓ Meal logged to Daily Log');
       setShowLogPanel(false);

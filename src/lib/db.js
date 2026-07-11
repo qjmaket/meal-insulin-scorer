@@ -65,6 +65,11 @@ export async function getMealLogs(userId, date) {
   return { data: data || [], error };
 }
 
+// Water's foodData.js entry — used to auto-credit hydration when water
+// is logged as part of a meal (see insertMealLog below).
+const WATER_FOOD_ID = 307;
+const GRAMS_PER_OZ = 29.5735;
+
 /**
  * Log a meal to the database
  */
@@ -111,6 +116,20 @@ export async function insertMealLog(userId, meal) {
     .insert(entry)
     .select()
     .single();
+
+  // Auto-credit hydration if the meal included any Water entries.
+  // Adds to (not overwrites) the day's existing hydration total.
+  if (!error) {
+    const waterGrams = meal.items
+      .filter(i => i.food?.id === WATER_FOOD_ID)
+      .reduce((sum, i) => sum + (i.grams || 0), 0);
+
+    if (waterGrams > 0) {
+      const ozToAdd = Math.round(waterGrams / GRAMS_PER_OZ);
+      const { data: currentOz } = await getHydration(userId, date);
+      await upsertHydration(userId, date, (currentOz || 0) + ozToAdd);
+    }
+  }
 
   return { data, error };
 }
