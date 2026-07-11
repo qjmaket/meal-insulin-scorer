@@ -54,7 +54,7 @@ function ScoreBarChart({ weekData, range, onRangeChange }) {
         <div className="label-sm">{range}-day insulin score</div>
         <RangeToggle range={range} onChange={onRangeChange} />
       </div>
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: range > 14 ? 2 : 6, height: 80 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: range > 14 ? 2 : 6, marginTop: 6 }}>
         {weekData.map((day, i) => {
           const score = day.avgScore;
           const hasData = score !== null;
