@@ -11,13 +11,50 @@ const DAYS_SHORT = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
 // ── Score bar chart ───────────────────────────────────────
 
-function ScoreBarChart({ weekData }) {
+const RANGE_OPTIONS = [
+  { days: 7,  label: '7D' },
+  { days: 14, label: '14D' },
+  { days: 30, label: '30D' },
+];
+
+function RangeToggle({ range, onChange }) {
+  return (
+    <div style={{ display: 'flex', gap: 4 }}>
+      {RANGE_OPTIONS.map(opt => (
+        <button
+          key={opt.days}
+          onClick={() => onChange(opt.days)}
+          style={{
+            background: range === opt.days ? '#00C9A7' : 'none',
+            border: `1px solid ${range === opt.days ? '#00C9A7' : '#1e3a52'}`,
+            borderRadius: 4,
+            color: range === opt.days ? '#0F1923' : '#5a7a96',
+            fontSize: 10, fontWeight: 600, padding: '3px 8px',
+            cursor: 'pointer', fontFamily: 'inherit',
+          }}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ScoreBarChart({ weekData, range, onRangeChange }) {
   const max = 30; // cap display at 30 for visual clarity
+  // Denser ranges lose the per-bar score number and day-of-month label —
+  // there isn't room for them once bars get this thin, and the shape of
+  // the trend matters more than the individual day at 30-bar density.
+  const showScoreLabel = range <= 14;
+  const showDateLabel  = range <= 14;
 
   return (
     <div>
-      <div className="label-sm" style={{ marginBottom: 12 }}>7-day insulin score</div>
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 80 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <div className="label-sm">{range}-day insulin score</div>
+        <RangeToggle range={range} onChange={onRangeChange} />
+      </div>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: range > 14 ? 2 : 6, height: 80 }}>
         {weekData.map((day, i) => {
           const score = day.avgScore;
           const hasData = score !== null;
@@ -35,7 +72,7 @@ function ScoreBarChart({ weekData }) {
 
           return (
             <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-              {hasData && (
+              {showScoreLabel && hasData && (
                 <div style={{ fontSize: 9, color, fontWeight: 600 }}>
                   {score.toFixed(1)}
                 </div>
@@ -54,16 +91,24 @@ function ScoreBarChart({ weekData }) {
                   minHeight: 3,
                 }} />
               </div>
-              <div style={{
-                fontSize: 10,
-                color: isToday ? '#00C9A7' : '#5a7a96',
-                fontWeight: isToday ? 600 : 400,
-                lineHeight: 1.3,
-                textAlign: 'center',
-              }}>
-                <div>{DAYS_SHORT[date.getDay()]}</div>
-                <div style={{ fontSize: 9, opacity: 0.75 }}>{date.getDate()}</div>
-              </div>
+              {showDateLabel ? (
+                <div style={{
+                  fontSize: 10,
+                  color: isToday ? '#00C9A7' : '#5a7a96',
+                  fontWeight: isToday ? 600 : 400,
+                  lineHeight: 1.3,
+                  textAlign: 'center',
+                }}>
+                  <div>{DAYS_SHORT[date.getDay()]}</div>
+                  <div style={{ fontSize: 9, opacity: 0.75 }}>{date.getDate()}</div>
+                </div>
+              ) : (
+                // 30-day view: only mark today and week boundaries to avoid
+                // 30 overlapping labels; everything else gets a blank tick.
+                <div style={{ fontSize: 8, color: isToday ? '#00C9A7' : 'transparent', lineHeight: 1 }}>
+                  {isToday ? '•' : '·'}
+                </div>
+              )}
             </div>
           );
         })}
@@ -82,7 +127,7 @@ function ScoreBarChart({ weekData }) {
 
 // ── Macro adherence bars ──────────────────────────────────
 
-function MacroAdherence({ weekData, targets }) {
+function MacroAdherence({ weekData, targets, range }) {
   if (!targets) return null;
 
   const daysWithData = weekData.filter(d => d.totals?.mealCount > 0);
@@ -98,7 +143,7 @@ function MacroAdherence({ weekData, targets }) {
 
   return (
     <div>
-      <div className="label-sm" style={{ marginBottom: 12 }}>7-day avg macros</div>
+      <div className="label-sm" style={{ marginBottom: 12 }}>{range}-day avg macros</div>
       {[
         { label: 'Protein', avg: avg.protein, target: targets.protein, color: '#00C9A7' },
         { label: 'Carbs',   avg: avg.carbs,   target: targets.carbs,   color: '#F5A623' },
@@ -320,8 +365,11 @@ function InsightsPanel({ insights }) {
 
 // ── Main Dashboard ────────────────────────────────────────
 
+const MAX_CHART_DAYS = 30;
+
 export default function Dashboard({ profile, targets, user, onNavigate }) {
-  const [weekData, setWeekData]       = useState([]);
+  const [monthData, setMonthData]     = useState([]); // trailing 30 days, chart/macro cards slice from this
+  const [chartRange, setChartRange]   = useState(7);
   const [bodyStats, setBodyStats]     = useState([]);
   const [todayFasting, setTodayFasting] = useState(null);
   const [todayHydration, setTodayHydration] = useState(0);
@@ -354,21 +402,23 @@ export default function Dashboard({ profile, targets, user, onNavigate }) {
     if (!userId) return;
     setLoading(true);
 
-    const [weekRes, bodyRes, fastingRes, hydrationRes] = await Promise.all([
-      getDashboardLogs(userId, 7),
+    const [monthRes, bodyRes, fastingRes, hydrationRes] = await Promise.all([
+      getDashboardLogs(userId, MAX_CHART_DAYS),
       getBodyStats(userId, 30),
       getFastingWindow(userId, today),
       getHydration(userId, today),
     ]);
 
-    const week = weekRes.data || [];
-    const body = bodyRes.data || [];
+    const month = monthRes.data || [];
+    const body  = bodyRes.data || [];
 
-    setWeekData(week);
+    setMonthData(month);
     setBodyStats(body);
     setTodayFasting(fastingRes.data);
     setTodayHydration(hydrationRes.data || 0);
-    setInsights(generateInsights(week, targets, body));
+    // Insights stay scoped to the trailing 7 days regardless of the chart
+    // toggle — the weekly-pattern logic they're built on doesn't change.
+    setInsights(generateInsights(month.slice(-7), targets, body));
     setLoading(false);
   }, [userId, today, targets]);
 
@@ -396,8 +446,8 @@ export default function Dashboard({ profile, targets, user, onNavigate }) {
   const suggested  = getSuggestedTimes(dayType);
   const dayTypeLabel = dayType.charAt(0).toUpperCase() + dayType.slice(1).replace('_', ' ');
 
-  // Today's totals from weekData
-  const todayData = weekData.find(d => d.date === today);
+  // Today's totals from monthData
+  const todayData = monthData.find(d => d.date === today);
   const todayTotals = todayData?.totals;
   const todayScore  = todayData?.avgScore;
   const scoreColor  = todayScore === null || todayScore === undefined ? '#5a7a96'
@@ -558,14 +608,18 @@ export default function Dashboard({ profile, targets, user, onNavigate }) {
             </div>
           </div>
 
-          {/* 7-day trend */}
+          {/* Score trend */}
           <div className="card">
-            <ScoreBarChart weekData={weekData} />
+            <ScoreBarChart
+              weekData={monthData.slice(-chartRange)}
+              range={chartRange}
+              onRangeChange={setChartRange}
+            />
           </div>
 
           {/* Macro adherence */}
           <div className="card">
-            <MacroAdherence weekData={weekData} targets={targets} />
+            <MacroAdherence weekData={monthData.slice(-chartRange)} targets={targets} range={chartRange} />
           </div>
 
           {/* Insights */}
