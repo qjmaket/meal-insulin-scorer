@@ -15,7 +15,7 @@ export const FOOD_DB = [
   { id: 3,  name: "White bread",                   category: "Grains",       gi: 75, carbP100: 49.0, fiberP100: 2.7, proteinP100: 9.0,  fatP100: 3.2,  portions: [{ label: "1 slice", g: 30 }, { label: "2 slices", g: 60 }] },
   { id: 4,  name: "Whole wheat bread",             category: "Grains",       gi: 69, carbP100: 41.0, fiberP100: 6.9, proteinP100: 13.0, fatP100: 3.4,  portions: [{ label: "1 slice", g: 32 }, { label: "2 slices", g: 64 }] },
   { id: 5,  name: "Sourdough bread",               category: "Grains",       gi: 54, carbP100: 45.0, fiberP100: 2.4, proteinP100: 9.0,  fatP100: 1.8,  portions: [{ label: "1 slice", g: 35 }, { label: "2 slices", g: 70 }] },
-  { id: 6,  name: "Rolled oats (cooked)",          category: "Grains",       gi: 55, carbP100: 12.0, fiberP100: 1.7, proteinP100: 2.5,  fatP100: 1.4,  portions: [{ label: "½ cup", g: 117 }, { label: "1 cup", g: 234 }] },
+  { id: 6,  name: "Rolled oats (cooked)",          category: "Grains",       gi: 55, carbP100: 12.0, fiberP100: 1.7, proteinP100: 2.5,  fatP100: 1.4,  aliases: ["oatmeal"], portions: [{ label: "½ cup", g: 117 }, { label: "1 cup", g: 234 }] },
   { id: 7,  name: "Steel-cut oats (cooked)",       category: "Grains",       gi: 42, carbP100: 12.0, fiberP100: 2.0, proteinP100: 2.5,  fatP100: 1.2,  portions: [{ label: "½ cup", g: 117 }, { label: "1 cup", g: 234 }] },
   { id: 8,  name: "Instant oats (cooked)",         category: "Grains",       gi: 79, carbP100: 14.0, fiberP100: 1.4, proteinP100: 2.2,  fatP100: 1.4,  portions: [{ label: "½ cup", g: 117 }, { label: "1 cup", g: 234 }] },
   { id: 9,  name: "White pasta (cooked)",          category: "Grains",       gi: 49, carbP100: 25.0, fiberP100: 1.8, proteinP100: 5.8,  fatP100: 0.9,  portions: [{ label: "½ cup", g: 70  }, { label: "1 cup", g: 140 }, { label: "2 cups", g: 280 }] },
@@ -434,11 +434,41 @@ export const FOOD_DB = [
 
 export const CATEGORIES = [...new Set(FOOD_DB.map(f => f.category))];
 
+// Small stemmer — strips common plural suffixes so "biscuits" matches
+// "Biscuit" and similar. This is deliberately narrow (English plural
+// suffixes only); it is not a general fuzzy-match or spelling-correction
+// layer, which would be a much bigger, less predictable feature.
+function normalizeWord(w) {
+  if (w.endsWith('ies') && w.length > 4) return w.slice(0, -3) + 'y'; // berries -> berry
+  if (w.endsWith('es') && w.length > 3 && /(?:[sxz]|[cs]h)$/.test(w.slice(0, -2))) return w.slice(0, -2); // boxes -> box
+  if (w.endsWith('s') && !w.endsWith('ss') && w.length > 3) return w.slice(0, -1); // oats -> oat
+  return w;
+}
+
 export function searchFoods(query) {
   if (!query || query.length < 2) return [];
-  const q = query.toLowerCase();
+  const q = query.toLowerCase().trim();
+  const qNorm = normalizeWord(q);
+
   return FOOD_DB
-    .filter(f => f.name.toLowerCase().includes(q))
+    .filter(f => {
+      const nameLower = f.name.toLowerCase();
+
+      // Fast path — preserves all matches the old exact-substring check found
+      if (nameLower.includes(q)) return true;
+
+      // Tokenized fallback — catches plural/singular mismatches generically
+      // (e.g. "biscuits" typed in full vs. "Biscuit" stored singular)
+      const nameWords = nameLower.replace(/[^\w\s]/g, ' ').split(/\s+/).map(normalizeWord);
+      if (nameWords.some(w => w === qNorm || w.startsWith(qNorm))) return true;
+
+      // Explicit aliases — for genuine synonyms no stemming rule can catch
+      // (e.g. "oatmeal" typed in full vs. "Rolled oats" stored). Opt-in per
+      // entry; add sparingly as real misses are noticed, not preemptively.
+      if (f.aliases && f.aliases.some(a => a.toLowerCase().includes(q))) return true;
+
+      return false;
+    })
     .sort((a, b) => {
       const aStart = a.name.toLowerCase().startsWith(q) ? 0 : 1;
       const bStart = b.name.toLowerCase().startsWith(q) ? 0 : 1;
