@@ -208,6 +208,12 @@ export default function FoodSearch({ onAdd }) {
                 .map(food => {
                   const hasGI = food.gi !== null;
                   const gl = hasGI ? calcGL(food, food.portions[0].g) : null;
+                  const sourceLabel = food.giSource === 'lookup'    ? 'GI verified'
+                    : food.giSource === 'estimated' ? 'GI estimated'
+                    : 'GI unknown';
+                  const sourceColor = food.giSource === 'lookup'    ? '#00C9A7'
+                    : food.giSource === 'estimated' ? '#F5A623'
+                    : '#5a7a96';
                   return (
                     <div
                       key={food.id}
@@ -228,8 +234,11 @@ export default function FoodSearch({ onAdd }) {
                       <div>
                         <span>{food.name}</span>
                         <span style={{ fontSize: 11, color: '#5a7a96', marginLeft: 8 }}>
-                          {hasGI ? `GI ${food.gi}` : 'GI unknown'} · Open Food Facts
+                          {hasGI ? `GI ${food.gi}` : 'no carbs data'} · Open Food Facts
                         </span>
+                        <div style={{ fontSize: 10, color: sourceColor, fontWeight: 600, marginTop: 2 }}>
+                          {sourceLabel}
+                        </div>
                       </div>
                       {gl !== null ? (
                         <span className={`gl-badge ${glBadgeClass(gl)}`} style={{ fontSize: 11 }}>

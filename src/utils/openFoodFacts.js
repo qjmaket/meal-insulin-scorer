@@ -115,6 +115,26 @@ const GI_LOOKUP = [
 ];
 
 /**
+ * Estimate GI from macros when no known-food match exists.
+ * Heuristic: fiber-to-carb ratio is the single strongest proxy available
+ * from OFF's standard fields (no sugars_100g pulled currently). Higher
+ * fiber relative to carbs → slower glucose release → lower estimated GI.
+ * This is deliberately a rough, documented heuristic — never presented
+ * as equivalent to a sourced GI value from GI_LOOKUP or the verified DB.
+ */
+function estimateGI(nutriments) {
+  const { carbP100, fiberP100 } = nutriments;
+  if (!carbP100 || carbP100 <= 0) return null; // no carbs, no GI to estimate
+
+  const fiber = fiberP100 ?? 0;
+  const fiberRatio = fiber / carbP100;
+
+  if (fiberRatio >= 0.15) return 35; // high-fiber carb source
+  if (fiberRatio >= 0.08) return 50; // moderate-fiber
+  return 65;                          // low-fiber / likely refined
+}
+
+/**
  * Match a product name to the best GI value from the lookup table
  * Returns null if no match found (honest — do not guess)
  */
@@ -158,7 +178,16 @@ function offProductToFood(product) {
   // Require at minimum carb data to be useful for scoring
   if (nutriments.carbP100 === null) return null;
 
-  const gi = lookupGI(name);
+  const lookedUpGI = lookupGI(name);
+  const estimatedGI = lookedUpGI === null ? estimateGI(nutriments) : null;
+  const gi = lookedUpGI ?? estimatedGI ?? null;
+
+  // giSource drives the UI badge — this is the actual confidence signal,
+  // never the display name. (Previously the name string itself said
+  // "GI estimated" even when gi was null/unknown — fixed here.)
+  const giSource = lookedUpGI !== null ? 'lookup'
+    : estimatedGI !== null ? 'estimated'
+    : 'unknown';
 
   // Build portions from serving size if available
   const portions = [];
@@ -169,10 +198,10 @@ function offProductToFood(product) {
 
   return {
     id: `off_${product.code || Math.random()}`,
-    name: gi ? fullName : `${fullName} (GI estimated)`,
+    name: fullName,
     category: 'Search Result',
-    gi: gi ?? null,           // null = no known GI
-    giSource: gi ? 'lookup' : 'unknown',
+    gi,
+    giSource,
     carbP100:    nutriments.carbP100    ?? 0,
     fiberP100:   nutriments.fiberP100   ?? 0,
     proteinP100: nutriments.proteinP100 ?? 0,
