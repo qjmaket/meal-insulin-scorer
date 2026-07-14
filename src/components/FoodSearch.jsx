@@ -18,6 +18,7 @@ export default function FoodSearch({ onAdd }) {
   const [query, setQuery]             = useState('');
   const [localResults, setLocalResults] = useState([]);
   const [offResults, setOffResults]   = useState([]);
+  const [offStatus, setOffStatus]     = useState('ok'); // 'ok' | 'cached' | 'throttled' | 'error'
   const [offLoading, setOffLoading]   = useState(false);
   const [selectedFood, setSelectedFood] = useState(null);
   const [portionIdx, setPortionIdx]   = useState(0);
@@ -55,8 +56,9 @@ export default function FoodSearch({ onAdd }) {
     offTimer.current = setTimeout(async () => {
       setOffLoading(true);
       try {
-        const off = await searchOpenFoodFacts(q);
-        setOffResults(off);
+        const { results, status } = await searchOpenFoodFacts(q);
+        setOffResults(results);
+        setOffStatus(status);
       } finally {
         setOffLoading(false);
       }
@@ -188,7 +190,7 @@ export default function FoodSearch({ onAdd }) {
           )}
 
           {/* OFF results section */}
-          {(offResults.length > 0 || offLoading) && (
+          {(offResults.length > 0 || offLoading || offStatus === 'throttled' || offStatus === 'error') && (
             <>
               <div style={{
                 padding: '6px 14px 4px',
@@ -200,6 +202,13 @@ export default function FoodSearch({ onAdd }) {
               }}>
                 {offLoading ? 'SEARCHING OPEN FOOD FACTS…' : 'OPEN FOOD FACTS'}
               </div>
+              {!offLoading && offResults.length === 0 && (offStatus === 'throttled' || offStatus === 'error') && (
+                <div style={{ padding: '10px 14px', fontSize: 12, color: '#F5A623' }}>
+                  {offStatus === 'throttled'
+                    ? 'Search paused briefly to avoid overloading Open Food Facts — try again in a moment.'
+                    : 'Open Food Facts search failed to respond — showing database results only.'}
+                </div>
+              )}
               {offResults
                 .filter(o => !localResults.some(l =>
                   l.name.toLowerCase() === o.name.toLowerCase()

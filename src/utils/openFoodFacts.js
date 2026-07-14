@@ -228,13 +228,47 @@ function offProductToFood(product) {
   };
 }
 
+// ─────────────────────────────────────────────────────────
+// Rate-limit safety: OFF's docs explicitly warn that /cgi/search.pl is
+// limited to 10 req/min/IP and NOT meant for search-as-you-type — exceeding
+// this risks a full IP ban. Two mitigations, both client-side, no new deps:
+//   1. Cache results per query for the session — retyping/backspacing to a
+//      previously-seen query reuses the cached result instead of refiring.
+//   2. Self-throttle to a max of 8 requests per rolling 60s (a safety
+//      margin under OFF's 10/min limit), skipping the call rather than
+//      risking a ban if we're already near it.
+// ─────────────────────────────────────────────────────────
+const resultCache = new Map(); // query (lowercase, trimmed) -> results array
+const requestTimestamps = [];  // ms timestamps of recent successful fetches
+const MAX_REQUESTS_PER_MINUTE = 8;
+
+function canMakeRequest() {
+  const now = Date.now();
+  while (requestTimestamps.length && now - requestTimestamps[0] > 60_000) {
+    requestTimestamps.shift();
+  }
+  return requestTimestamps.length < MAX_REQUESTS_PER_MINUTE;
+}
+
 /**
  * Search Open Food Facts by text query
  * Uses legacy v1 endpoint — the only OFF endpoint supporting full-text search
- * Returns array of food objects in our app format
+ * Returns { results, status } where status is 'ok' | 'cached' | 'throttled' | 'error'
+ * so the caller can distinguish "genuinely no matches" from "we couldn't ask".
  */
 export async function searchOpenFoodFacts(query) {
-  if (!query || query.length < 2) return [];
+  if (!query || query.length < 2) return { results: [], status: 'ok' };
+
+  const key = query.toLowerCase().trim();
+  if (resultCache.has(key)) {
+    return { results: resultCache.get(key), status: 'cached' };
+  }
+
+  if (!canMakeRequest()) {
+    // Don't fire — protect the shared IP-wide rate limit. This is not
+    // "no results", it's "we chose not to ask right now".
+    return { results: [], status: 'throttled' };
+  }
 
   const params = new URLSearchParams({
     search_terms: query,
@@ -248,21 +282,24 @@ export async function searchOpenFoodFacts(query) {
   const url = `${BASE_URL}/cgi/search.pl?${params.toString()}`;
 
   try {
+    requestTimestamps.push(Date.now());
     const res = await fetch(url, {
       headers: { 'User-Agent': USER_AGENT },
     });
 
-    if (!res.ok) return [];
+    if (res.status === 429 || res.status === 503) {
+      return { results: [], status: 'throttled' };
+    }
+    if (!res.ok) return { results: [], status: 'error' };
 
     const data = await res.json();
-    if (!data.products || !Array.isArray(data.products)) return [];
+    if (!data.products || !Array.isArray(data.products)) return { results: [], status: 'ok' };
 
-    return data.products
-      .map(offProductToFood)
-      .filter(Boolean)
-      .slice(0, 6);
+    const results = data.products.map(offProductToFood).filter(Boolean).slice(0, 6);
+    resultCache.set(key, results);
+    return { results, status: 'ok' };
   } catch (err) {
     console.warn('Open Food Facts search failed:', err);
-    return [];
+    return { results: [], status: 'error' };
   }
 }
