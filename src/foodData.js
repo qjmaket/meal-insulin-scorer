@@ -438,11 +438,35 @@ export const CATEGORIES = [...new Set(FOOD_DB.map(f => f.category))];
 // "Biscuit" and similar. This is deliberately narrow (English plural
 // suffixes only); it is not a general fuzzy-match or spelling-correction
 // layer, which would be a much bigger, less predictable feature.
-function normalizeWord(w) {
+export function normalizeWord(w) {
   if (w.endsWith('ies') && w.length > 4) return w.slice(0, -3) + 'y'; // berries -> berry
   if (w.endsWith('es') && w.length > 3 && /(?:[sxz]|[cs]h)$/.test(w.slice(0, -2))) return w.slice(0, -2); // boxes -> box
   if (w.endsWith('s') && !w.endsWith('ss') && w.length > 3) return w.slice(0, -1); // oats -> oat
   return w;
+}
+
+/**
+ * Check whether a single name plausibly matches a query, using the same
+ * tokenized + plural-stemmed logic as searchFoods. Exported so other
+ * sources (e.g. Open Food Facts results) can filter by actual relevance
+ * to the query instead of trusting an external ranking — OFF's legacy
+ * search endpoint matches on fields beyond the product name and can
+ * return results with no visible connection to what was typed.
+ */
+export function isRelevantMatch(name, query) {
+  if (!name || !query) return false;
+  const nameLower = name.toLowerCase();
+  const q = query.toLowerCase().trim();
+  const qNorm = normalizeWord(q);
+
+  if (nameLower.includes(q)) return true;
+
+  const nameWords = nameLower.replace(/[^\w\s]/g, ' ').split(/\s+/).map(normalizeWord).filter(w => w.length >= 3);
+  return nameWords.some(w =>
+    w === qNorm ||
+    w.startsWith(qNorm) ||               // name word is longer (e.g. name "oatmealish" vs query "oat")
+    (qNorm.length >= 3 && qNorm.startsWith(w)) // query is longer (e.g. query "oatmeal" vs name word "oat")
+  );
 }
 
 export function searchFoods(query) {

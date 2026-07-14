@@ -7,6 +7,8 @@
 // Rate limit: reasonable use — no hard published limit for small apps.
 // ─────────────────────────────────────────────────────────
 
+import { isRelevantMatch } from '../foodData';
+
 const BASE_URL = 'https://world.openfoodfacts.org';
 const USER_AGENT = 'MealInsulinScorer/1.0 (nutrition research app)';
 
@@ -295,7 +297,15 @@ export async function searchOpenFoodFacts(query) {
     const data = await res.json();
     if (!data.products || !Array.isArray(data.products)) return { results: [], status: 'ok' };
 
-    const results = data.products.map(offProductToFood).filter(Boolean).slice(0, 6);
+    const results = data.products
+      .map(offProductToFood)
+      .filter(Boolean)
+      // OFF's legacy search matches on fields beyond the product name
+      // (ingredients, categories, etc.) and its own ranking isn't reliably
+      // relevance-sorted — don't show a product whose actual name has no
+      // visible connection to what was typed.
+      .filter(food => isRelevantMatch(food.name, query))
+      .slice(0, 6);
     resultCache.set(key, results);
     return { results, status: 'ok' };
   } catch (err) {
