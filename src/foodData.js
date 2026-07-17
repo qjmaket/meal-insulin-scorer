@@ -432,6 +432,10 @@ export const FOOD_DB = [
 { id: 318, name: "Heinz Original BBQ Sauce (estimated GI)", category: "Snacks & Sweets", gi: 60, carbP100: 68.0, fiberP100: 0.0, proteinP100: 0.0, fatP100: 0.0, portions: [{ label: "1 tbsp", g: 18 }, { label: "2 tbsp", g: 36 }, { label: "1 oz cup", g: 30 }] },
 
 { id: 319, name: "Chick-fil-A Breakfast Filet (estimated GI)", category: "Protein", gi: 52, carbP100: 11.3, fiberP100: 0.0, proteinP100: 21.1, fatP100: 11.3, portions: [{ label: "1 breakfast filet", g: 71 }] },
+
+{ id: 320, name: "Olé Xtreme Wellness High Fiber Carb Friendly Tortilla (estimated GI)", category: "Grains", gi: 25, carbP100: 35.6, fiberP100: 26.7, proteinP100: 8.9, fatP100: 3.3, portions: [{ label: "1 tortilla", g: 45 }] },
+
+{ id: 321, name: "Publix Ground Chuck Hamburger Patty", category: "Protein", gi: 0, carbP100: 0.0, fiberP100: 0.0, proteinP100: 15.5, fatP100: 18.0, portions: [{ label: "1 hamburger patty", g: 122 }] },
 ];
 
 export const CATEGORIES = [...new Set(FOOD_DB.map(f => f.category))];
