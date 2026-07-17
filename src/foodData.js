@@ -436,6 +436,8 @@ export const FOOD_DB = [
 { id: 320, name: "Olé Xtreme Wellness High Fiber Carb Friendly Tortilla wraps (estimated GI)", category: "Grains", gi: 25, carbP100: 35.6, fiberP100: 26.7, proteinP100: 8.9, fatP100: 3.3, portions: [{ label: "1 tortilla", g: 45 }] },
 
 { id: 321, name: "Publix Ground Chuck Hamburger Patty", category: "Protein", gi: 0, carbP100: 0.0, fiberP100: 0.0, proteinP100: 15.5, fatP100: 18.0, portions: [{ label: "1 hamburger patty", g: 122 }] },
+
+{ id: 322, name: "Baby Carrots", category: "Vegetables", gi: 35, carbP100: 8.2, fiberP100: 3.5, proteinP100: 1.2, fatP100: 0.0, portions: [{ label: "13 baby carrots", g: 85 }, { label: "1 baby carrot", g: 6.5 }] },
 ];
 
 export const CATEGORIES = [...new Set(FOOD_DB.map(f => f.category))];
