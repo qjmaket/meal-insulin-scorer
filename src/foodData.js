@@ -469,6 +469,8 @@ export const FOOD_DB = [
   { id: 350, name: "Organic Apple Juice (Chipotle)", category: "Beverages", gi: 41, giSource: "estimated", carbP100: 13.1, fiberP100: 0.0, proteinP100: 0.0, fatP100: 0.0, portions: [{ label: "6.75 fl oz", g: 191 }, { label: "double", g: 383 }] },
 
 { id: 351, name: "Safe Catch Wild Ahi Yellowfin Tuna", category: "Protein", gi: 0, carbP100: 0.0, fiberP100: 0.0, proteinP100: 30.6, fatP100: 0.6, portions: [{ label: "3 oz", g: 85 }, { label: "1 can", g: 128 }] },
+
+{ id: 352, name: "Safe Catch Ahi Tuna prepped in Hellmann's Mayo", category: "Protein", gi: 0, carbP100: 0.0, fiberP100: 0.0, proteinP100: 24.8, fatP100: 15.1, portions: [{ label: "1 tbsp", g: 15 }, { label: "1/4 cup", g: 60 }, { label: "1/2 cup", g: 120 }, { label: "1 cup", g: 240 }, { label: "Entire batch", g: 948 }] },
 ];
 
 export const CATEGORIES = [...new Set(FOOD_DB.map(f => f.category))];
