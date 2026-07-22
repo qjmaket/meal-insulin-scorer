@@ -467,6 +467,8 @@ export const FOOD_DB = [
   { id: 348, name: "Organic Milk (Chipotle)", category: "Dairy", gi: 30, giSource: "estimated", carbP100: 5.3, fiberP100: 0.0, proteinP100: 3.5, fatP100: 1.1, portions: [{ label: "8 fl oz", g: 227 }, { label: "double", g: 454 }] },
   { id: 349, name: "Organic Chocolate Milk (Chipotle)", category: "Dairy", gi: 34, giSource: "estimated", carbP100: 10.6, fiberP100: 0.4, proteinP100: 4.0, fatP100: 1.3, portions: [{ label: "8 fl oz", g: 227 }, { label: "double", g: 454 }] },
   { id: 350, name: "Organic Apple Juice (Chipotle)", category: "Beverages", gi: 41, giSource: "estimated", carbP100: 13.1, fiberP100: 0.0, proteinP100: 0.0, fatP100: 0.0, portions: [{ label: "6.75 fl oz", g: 191 }, { label: "double", g: 383 }] },
+
+{ id: 351, name: "Safe Catch Wild Ahi Yellowfin Tuna", category: "Protein", gi: 0, carbP100: 0.0, fiberP100: 0.0, proteinP100: 30.6, fatP100: 0.6, portions: [{ label: "3 oz", g: 85 }, { label: "1 can", g: 128 }] },
 ];
 
 export const CATEGORIES = [...new Set(FOOD_DB.map(f => f.category))];
