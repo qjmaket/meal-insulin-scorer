@@ -4,8 +4,11 @@ import MealItem from './MealItem';
 import ScorePanel from './ScorePanel';
 import MealFlag from './MealFlag';
 import { getMealScore, FOOD_DB } from '../foodData';
-import { insertMealLog, insertSavedMeal, updateFastingWindowFromMeal, closeEatingWindow } from '../lib/db';
-import { localDateKey } from '../utils/storage';
+import {
+  insertMealLog, insertSavedMeal, updateFastingWindowFromMeal, closeEatingWindow,
+  getMealLogs, getHydration, upsertHydration,
+} from '../lib/db';
+import { localDateKey, todayKey } from '../utils/storage';
 
 const PRESET_MEALS = [
   {
@@ -57,6 +60,73 @@ function getEffectiveItems(items) {
   }));
 }
 
+// ── Hydration counter (moved here from Daily Log — lives on the Meal
+// Scorer tab now since that's where meals get logged) ────────────────
+function SupabaseHydrationCounter({ userId }) {
+  const [oz, setOz]           = useState(0);
+  const [loading, setLoading] = useState(true);
+  const GOAL = 64;
+
+  useEffect(() => {
+    if (!userId) return;
+    getHydration(userId, todayKey()).then(({ data }) => {
+      setOz(data || 0);
+      setLoading(false);
+    });
+  }, [userId]);
+
+  const add = async (amount) => {
+    const updated = oz + amount;
+    setOz(updated);
+    await upsertHydration(userId, todayKey(), updated);
+  };
+
+  const reset = async () => {
+    setOz(0);
+    await upsertHydration(userId, todayKey(), 0);
+  };
+
+  const pct = Math.min((oz / GOAL) * 100, 100);
+  const color = pct >= 100 ? '#00C9A7' : pct >= 50 ? '#F5A623' : '#5a7a96';
+
+  return (
+    <div className="card">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+        <div>
+          <div className="label-sm" style={{ marginBottom: 4 }}>Hydration</div>
+          <div style={{ fontSize: 11, color: '#5a7a96' }}>Daily goal: {GOAL} oz / {GOAL / 8} cups</div>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: 24, fontWeight: 600, color, lineHeight: 1 }}>{loading ? '…' : oz} oz</div>
+          <div style={{ fontSize: 11, color: '#5a7a96' }}>{Math.round(oz / 8 * 10) / 10} cups</div>
+        </div>
+      </div>
+      <div className="progress-track" style={{ marginBottom: 14 }}>
+        <div className="progress-fill" style={{ width: `${pct}%`, background: color }} />
+      </div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {[8, 12, 16, 20].map(amt => (
+          <button key={amt} onClick={() => add(amt)} style={{
+            flex: 1, background: '#1a2d3d', border: '1px solid #1e3a52',
+            borderRadius: 6, color: '#F0EDE6', padding: '8px 4px',
+            fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
+          }}>+{amt} oz</button>
+        ))}
+        <button onClick={reset} style={{
+          background: 'none', border: '1px solid #1e3a52', borderRadius: 6,
+          color: '#5a7a96', padding: '8px 12px', fontSize: 12,
+          cursor: 'pointer', fontFamily: 'inherit',
+        }}>Reset</button>
+      </div>
+      {pct >= 100 && (
+        <div style={{ marginTop: 10, padding: '6px 10px', background: '#0a2a25', borderRadius: 6, fontSize: 11, color: '#00C9A7' }}>
+          ✓ Daily hydration goal reached
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MealScorer({ profile, targets, user, onNavigate, preloadMeal, onPreloadConsumed }) {
   const [items, setItems]               = useState([]);
   const [mealName, setMealName]         = useState('My Meal');
@@ -69,12 +139,33 @@ export default function MealScorer({ profile, targets, user, onNavigate, preload
   const [logging, setLogging]           = useState(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [closing, setClosing]             = useState(false);
+  const [mealCount, setMealCount]         = useState(null); // # meals already logged today
+  const [nameTouched, setNameTouched]     = useState(false); // user manually edited the name
+
+  const nextMealName = (count) => `Meal #${(count ?? 0) + 1}`;
+
+  // On mount (and whenever the user changes), find out how many meals are
+  // already logged today so the scorer can default to "Meal #N" instead of
+  // always "My Meal" — this is what was causing every unrenamed meal to
+  // look identical in the Daily Log.
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    getMealLogs(user.id, localDateKey()).then(({ data }) => {
+      if (cancelled) return;
+      const count = data?.length || 0;
+      setMealCount(count);
+      if (!nameTouched && !preloadMeal) setMealName(nextMealName(count));
+    });
+    return () => { cancelled = true; };
+  }, [user?.id]);
 
   // Consume preloaded meal from Quick Log or Dashboard
   useEffect(() => {
     if (!preloadMeal) return;
     setItems((preloadMeal.items || []).map(i => ({ ...i, quantity: i.quantity || 1 })));
     setMealName(preloadMeal.name || 'My Meal');
+    setNameTouched(true); // treat a loaded meal's name as intentional, don't clobber it
     setFlag(null);
     setShowLogPanel(false);
     onPreloadConsumed?.();
@@ -125,7 +216,8 @@ export default function MealScorer({ profile, targets, user, onNavigate, preload
 
   const clearMeal = () => {
     setItems([]);
-    setMealName('My Meal');
+    setMealName(nextMealName(mealCount));
+    setNameTouched(false);
     setFlag(null);
     setShowLogPanel(false);
   };
@@ -158,6 +250,15 @@ export default function MealScorer({ profile, targets, user, onNavigate, preload
       const date = localDateKey(new Date(ts));
       await updateFastingWindowFromMeal(user.id, date, ts, fastingSafe);
       showToast(fastingSafe ? '✓ Logged — fast window preserved' : '✓ Meal logged to Daily Log');
+
+      // Full reset of the scorer for the next meal, with the name
+      // auto-advanced to the next meal number for today.
+      const newCount = (mealCount ?? 0) + 1;
+      setMealCount(newCount);
+      setItems([]);
+      setFlag(null);
+      setMealName(nextMealName(newCount));
+      setNameTouched(false);
       setShowLogPanel(false);
       setLogTimestamp('');
       setFastingSafe(false);
@@ -297,7 +398,7 @@ export default function MealScorer({ profile, targets, user, onNavigate, preload
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
             {editingName ? (
               <input autoFocus value={mealName}
-                onChange={e => setMealName(e.target.value)}
+                onChange={e => { setMealName(e.target.value); setNameTouched(true); }}
                 onBlur={() => setEditingName(false)}
                 onKeyDown={e => e.key === 'Enter' && setEditingName(false)}
                 style={{
@@ -443,8 +544,9 @@ export default function MealScorer({ profile, targets, user, onNavigate, preload
           </div>
         </div>
 
-        <div className="score-panel-sticky" style={{ position: 'sticky', top: 16 }}>
+        <div className="score-panel-sticky" style={{ position: 'sticky', top: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
           <ScorePanel score={score} />
+          {user?.id && <SupabaseHydrationCounter userId={user.id} />}
         </div>
       </div>
     </div>

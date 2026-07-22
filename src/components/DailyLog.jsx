@@ -1,11 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import FastingTracker from './FastingTracker';
-import HydrationCounter from './HydrationCounter';
 import QuickLog from './QuickLog';
 import {
   getMealLogs, deleteMealLog, updateMealLog,
   insertMealLog, insertSavedMeal, calcDailyTotals,
-  getHydration, upsertHydration,
   getFastingWindow, upsertFastingWindow,
   getSavedMeals, deleteSavedMeal, updateSavedMealName,
   getRecentMealLogs, updateFastingWindowFromMeal, closeEatingWindow,
@@ -368,73 +366,9 @@ function SupabaseQuickLog({ userId, onLogMeal, onLoadInScorer }) {
   );
 }
 
-// ── Supabase-backed HydrationCounter ─────────────────────
-
-function SupabaseHydrationCounter({ userId }) {
-  const [oz, setOz]           = useState(0);
-  const [loading, setLoading] = useState(true);
-  const GOAL = 64;
-
-  useEffect(() => {
-    getHydration(userId, todayKey()).then(({ data }) => {
-      setOz(data || 0);
-      setLoading(false);
-    });
-  }, [userId]);
-
-  const add = async (amount) => {
-    const updated = oz + amount;
-    setOz(updated);
-    await upsertHydration(userId, todayKey(), updated);
-  };
-
-  const reset = async () => {
-    setOz(0);
-    await upsertHydration(userId, todayKey(), 0);
-  };
-
-  const pct = Math.min((oz / GOAL) * 100, 100);
-  const color = pct >= 100 ? '#00C9A7' : pct >= 50 ? '#F5A623' : '#5a7a96';
-
-  return (
-    <div className="card">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-        <div>
-          <div className="label-sm" style={{ marginBottom: 4 }}>Hydration</div>
-          <div style={{ fontSize: 11, color: '#5a7a96' }}>Daily goal: {GOAL} oz / {GOAL / 8} cups</div>
-        </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 24, fontWeight: 600, color, lineHeight: 1 }}>{loading ? '…' : oz} oz</div>
-          <div style={{ fontSize: 11, color: '#5a7a96' }}>{Math.round(oz / 8 * 10) / 10} cups</div>
-        </div>
-      </div>
-      <div className="progress-track" style={{ marginBottom: 14 }}>
-        <div className="progress-fill" style={{ width: `${pct}%`, background: color }} />
-      </div>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        {[8, 12, 16, 20].map(amt => (
-          <button key={amt} onClick={() => add(amt)} style={{
-            flex: 1, background: '#1a2d3d', border: '1px solid #1e3a52',
-            borderRadius: 6, color: '#F0EDE6', padding: '8px 4px',
-            fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
-          }}>+{amt} oz</button>
-        ))}
-        <button onClick={reset} style={{
-          background: 'none', border: '1px solid #1e3a52', borderRadius: 6,
-          color: '#5a7a96', padding: '8px 12px', fontSize: 12,
-          cursor: 'pointer', fontFamily: 'inherit',
-        }}>Reset</button>
-      </div>
-      {pct >= 100 && (
-        <div style={{ marginTop: 10, padding: '6px 10px', background: '#0a2a25', borderRadius: 6, fontSize: 11, color: '#00C9A7' }}>
-          ✓ Daily hydration goal reached
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── Main DailyLog screen ─────────────────────────────────
+// Note: hydration tracking now lives on the Meal Scorer tab
+// (SupabaseHydrationCounter moved to MealScorer.jsx).
 
 export default function DailyLog({ profile, targets: propTargets, user, onNavigate, initialTab, onInitialTabConsumed }) {
   const [log, setLog]             = useState([]);
@@ -676,7 +610,6 @@ export default function DailyLog({ profile, targets: propTargets, user, onNaviga
           >
             ■ Close eating window
           </button>
-          <SupabaseHydrationCounter userId={userId} />
         </div>
       )}
 
