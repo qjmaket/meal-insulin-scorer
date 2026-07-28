@@ -141,6 +141,7 @@ export const FOOD_DB = [
   { id: 123, name: "Tangerine / mandarin",         category: "Fruits",       gi: 47, carbP100: 13.0, fiberP100: 1.8, proteinP100: 0.8,  fatP100: 0.3,  portions: [{ label: "1 medium", g: 88 }, { label: "2 medium", g: 176 }] },
   { id: 124, name: "Guava",                        category: "Fruits",       gi: 12, carbP100: 14.0, fiberP100: 5.4, proteinP100: 2.6,  fatP100: 1.0,  portions: [{ label: "1 medium", g: 55 }, { label: "1 cup", g: 165 }] },
   { id: 125, name: "Coconut (fresh shredded)",     category: "Fruits",       gi: 45, carbP100: 15.0, fiberP100: 9.0, proteinP100: 3.3,  fatP100: 33.0, portions: [{ label: "¼ cup", g: 23 }, { label: "½ cup", g: 47 }] },
+{ id: 410, name: "Granny Smith Apple (Raw, with Skin)", category: "Fruits", gi: 36, carbP100: 13.6, fiberP100: 2.8, proteinP100: 0.4, fatP100: 0.2, portions: [{ label: "100 g", g: 100 }, { label: "1 cup, sliced", g: 109 }, { label: "1 medium apple", g: 169 }, { label: "1 large apple", g: 223 }] },
 
   // CATEGORY 5: LEGUMES (20 foods, IDs 126–145)
   { id: 126, name: "Chickpeas (cooked)",           category: "Legumes",      gi: 28, carbP100: 27.0, fiberP100: 7.6, proteinP100: 9.0,  fatP100: 2.6,  portions: [{ label: "½ cup", g: 82 }, { label: "1 cup", g: 164 }] },
